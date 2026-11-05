@@ -1,0 +1,16 @@
+services:
+  bot:
+    build:
+      context: .
+      target: runtime
+    env_file: .env
+    restart: unless-stopped
+    # PDF rendering and ffmpeg peak here; the VPS has ~2 GB RAM shared with other bots
+    mem_limit: 400m
+    cpus: 1.0
+    read_only: true
+    tmpfs:
+      - /tmp:size=200m
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "3" }

@@ -1,0 +1,26 @@
+[project]
+name = "isleplace-bot"
+version = "0.1.0"
+description = "IslePlace Converter Telegram bot: voice messages to MP3, HEIC/PNG/WebP to JPG, PDF tools, Mini App"
+requires-python = ">=3.12"
+dependencies = [
+  "aiogram>=3.31,<4",
+  "pillow>=13",
+  "pillow-heif>=1.8",
+  "pymupdf>=2.1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=1", "ruff>=0.14"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"

@@ -29,3 +29,20 @@ jobs:
           name: playwright-results
           path: apps/web/test-results/
           retention-days: 7
+
+  bot:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/bot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -q
+      # the same tests inside the production image (Python 3.12 + ffmpeg on Debian)
+      - run: docker build --target test -t isleplace-bot:test .
+      - run: docker build --target runtime -t isleplace-bot .
