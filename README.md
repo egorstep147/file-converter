@@ -66,6 +66,7 @@ The site is fully static (`dist/`) and is served by Cloudflare Workers **static 
 ```bash
 npx wrangler login   # once, opens the browser
 npm run deploy       # build + wrangler deploy
+npm run indexnow     # ping Yandex + Bing (IndexNow) with every URL from the sitemap
 BASE_URL=https://convert.isleplace.com npm run test:e2e   # e2e against production
 ```
 
