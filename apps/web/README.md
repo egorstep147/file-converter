@@ -52,6 +52,31 @@ Fixtures live in `tests/fixtures/`. Images and audio were generated with ffmpeg 
 
 CI (`.github/workflows/ci.yml`) runs type check, unit and e2e tests on every push.
 
+## PWA (install, offline, Android "Share")
+
+- `public/manifest.webmanifest`: name, icons (generated from `favicon.svg` with `npx pwa-assets-generator --preset minimal-2023 public/favicon.svg`), `display: standalone`, `share_target`.
+- `public/sw.js`: hand-written service worker, no dependencies — pages network-first, hashed `/_astro/*` assets (JS, WASM decoders) cache-first, so every tool used once works offline.
+- **Share target (Android Chrome):** after "Install app", IslePlace appears in the system Share sheet. The service worker receives the POST at `/share-target/`, keeps the files in the `shared-files` cache and redirects to `/share/`, which suggests tools (`src/lib/shared.ts`); the tool page with `?shared=1` takes the files. Nothing is uploaded.
+- e2e: `tests/e2e/pwa.spec.ts` checks the manifest, offline mode and the whole share flow.
+
+## Android app (Capacitor)
+
+`android/` wraps the built `dist/` into an app (`com.isleplace.converter`).
+
+```bash
+npm run android:sync     # build the site and copy it into android/
+npm run android:apk      # debug APK → android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Needs JDK 21 (Gradle 8.14 doesn't run on Java 25 from Android Studio) and the Android SDK; set `JAVA_HOME` / `ANDROID_HOME`.
+
+- `MainActivity.java` rewrites `/dir/` → `/dir/index.html`: Capacitor serves extension-less paths as an SPA root, which would loop the language redirect.
+- In the app, "Download" and "Download all" use the system share sheet (`src/lib/native.ts`: Filesystem + Share plugins), because a WebView can't download `blob:` links. The service worker is not registered there — every file is inside the APK.
+
+## Telegram Mini App
+
+The bot (`apps/bot`) opens this site inside Telegram. Telegram adds `#tgWebAppData=<signed initData>`; `PwaHead.astro` keeps it for the session and `src/lib/telegram.ts` shows **"Send to chat"** in results: the file is POSTed to the bot endpoint (`PUBLIC_BOT_API`, default `https://convert-bot.130-17-30-251.sslip.io:8443`), which verifies the signature and sends the file to the user's chat. This is the one case where a result leaves the device — the UI says so.
+
 ## Add a tool or a language
 
 - **Tool:** add an entry to `src/tools.ts`, a runner case in `src/lib/run.ts` (and options UI in `Converter.tsx` if needed), texts in every `src/i18n/*.ts`. TypeScript fails the build until every language has the texts.
