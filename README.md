@@ -59,14 +59,14 @@ CI (`.github/workflows/ci.yml`) runs type check, unit and e2e tests on every pus
 
 ## Deploy (Cloudflare)
 
-Live: https://local-file-converter.file-converter.workers.dev
+Live: https://convert.isleplace.com
 
 The site is fully static (`dist/`) and is served by Cloudflare Workers **static assets** (`wrangler.jsonc`: assets only, no server code, `404-page` for unknown URLs). Cloudflare now hosts new Pages projects on Workers; no Astro server adapter is needed.
 
 ```bash
 npx wrangler login   # once, opens the browser
 npm run deploy       # build + wrangler deploy
-BASE_URL=https://local-file-converter.file-converter.workers.dev npm run test:e2e   # e2e against production
+BASE_URL=https://convert.isleplace.com npm run test:e2e   # e2e against production
 ```
 
 Set `SITE_URL` when building for a custom domain (used in canonical/hreflang links and the sitemap), and update `public/robots.txt`.

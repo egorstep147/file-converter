@@ -4,8 +4,8 @@ import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 
 // Public URL of the site: used for canonical/hreflang links and sitemap.xml.
-// Override with SITE_URL when the site gets its own domain.
-const site = process.env.SITE_URL ?? 'https://local-file-converter.file-converter.workers.dev';
+// Override with SITE_URL to build for another domain.
+const site = process.env.SITE_URL ?? 'https://convert.isleplace.com';
 
 export default defineConfig({
   site,
