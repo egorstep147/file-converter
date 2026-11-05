@@ -1,0 +1,56 @@
+---
+import { HREFLANG, LANGS, DEFAULT_LANG, homePath, t, type Lang } from '../i18n';
+import '../styles/global.css';
+
+interface Props {
+  lang: Lang;
+  title: string;
+  desc: string;
+  /** path after /<lang>/, e.g. "heic-to-jpg/" or "" for home */
+  rest: string;
+  jsonLd?: object[];
+}
+const { lang, title, desc, rest, jsonLd = [] } = Astro.props;
+const ui = t(lang).ui;
+const abs = (l: Lang) => new URL(`/${l}/${rest}`, Astro.site).href;
+---
+
+<!doctype html>
+<html lang={HREFLANG[lang]}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={desc} />
+    <link rel="canonical" href={abs(lang)} />
+    {LANGS.map((l) => <link rel="alternate" hreflang={HREFLANG[l]} href={abs(l)} />)}
+    <link rel="alternate" hreflang="x-default" href={abs(DEFAULT_LANG)} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={desc} />
+    <meta property="og:url" content={abs(lang)} />
+    <meta property="og:site_name" content={ui.siteName} />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {jsonLd.map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
+  </head>
+  <body>
+    <header class="top">
+      <a class="logo" href={homePath(lang)}>⇄ {ui.siteName}</a>
+      <nav class="langs" aria-label={ui.language}>
+        {LANGS.map((l) => (
+          <a href={`/${l}/${rest}`} hreflang={HREFLANG[l]} aria-current={l === lang ? 'page' : undefined}>{l.toUpperCase()}</a>
+        ))}
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="foot">
+      <p>🔒 {ui.footer}</p>
+      <p>
+        {LANGS.map((l) => <a href={`/${l}/${rest}`} hreflang={HREFLANG[l]}>{t(l).langName}</a>)}
+      </p>
+    </footer>
+  </body>
+</html>

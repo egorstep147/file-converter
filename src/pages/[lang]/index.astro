@@ -1,0 +1,30 @@
+---
+import ToolCards from '../../components/ToolCards.astro';
+import { LANGS, t, type Lang } from '../../i18n';
+import Base from '../../layouts/Base.astro';
+
+export function getStaticPaths() {
+  return LANGS.map((lang) => ({ params: { lang } }));
+}
+
+const lang = Astro.params.lang as Lang;
+const ui = t(lang).ui;
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: ui.siteName,
+    url: new URL(`/${lang}/`, Astro.site).href,
+    inLanguage: lang,
+  },
+];
+---
+
+<Base lang={lang} title={ui.homeTitle} desc={ui.homeDesc} rest="" jsonLd={jsonLd}>
+  <section class="hero">
+    <h1>{ui.homeH1}</h1>
+    <p class="lead">{ui.homeIntro}</p>
+    <p class="privacy">🔒 {ui.privacy}</p>
+  </section>
+  <ToolCards lang={lang} />
+</Base>

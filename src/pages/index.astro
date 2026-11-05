@@ -1,0 +1,32 @@
+---
+import { DEFAULT_LANG, HREFLANG, LANGS, t } from '../i18n';
+import '../styles/global.css';
+
+const abs = (p: string) => new URL(p, Astro.site).href;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{t(DEFAULT_LANG).ui.siteName}</title>
+    <link rel="canonical" href={abs(`/${DEFAULT_LANG}/`)} />
+    {LANGS.map((l) => <link rel="alternate" hreflang={HREFLANG[l]} href={abs(`/${l}/`)} />)}
+    <link rel="alternate" hreflang="x-default" href={abs(`/${DEFAULT_LANG}/`)} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script is:inline define:vars={{ langs: LANGS, def: DEFAULT_LANG }}>
+      // pick the first browser language we support, fall back to English
+      const pick = (navigator.languages || [navigator.language]).map((l) => l.slice(0, 2).toLowerCase()).find((l) => langs.includes(l));
+      location.replace('/' + (pick || def) + '/');
+    </script>
+  </head>
+  <body>
+    <main class="center">
+      <h1>{t(DEFAULT_LANG).ui.siteName}</h1>
+      <ul class="cards">
+        {LANGS.map((l) => <li><a href={`/${l}/`} hreflang={HREFLANG[l]}>{t(l).langName}</a></li>)}
+      </ul>
+    </main>
+  </body>
+</html>

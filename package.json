@@ -1,0 +1,43 @@
+{
+  "name": "file-converter",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private in-browser file converter: HEIC/JPG/PNG/WebP, PDF tools, voice messages to MP3. Static Astro site, 5 languages.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "fixtures": "node scripts/make-fixtures.mjs",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name local-file-converter",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/react": "^7.1.2",
+    "@astrojs/sitemap": "^3.7.4",
+    "@breezystack/lamejs": "^1.2.7",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "astro": "^7.4.5",
+    "fflate": "^0.8.3",
+    "heic-to": "^1.6.7",
+    "ogg-opus-decoder": "^1.7.5",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.5.438",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@playwright/test": "^1.64.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.157.0"
+  }
+}

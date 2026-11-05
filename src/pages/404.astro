@@ -1,0 +1,24 @@
+---
+import { DEFAULT_LANG, LANGS, homePath, t } from '../i18n';
+import '../styles/global.css';
+const ui = t(DEFAULT_LANG).ui;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>404 — {ui.notFound}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <main class="center">
+      <h1>404</h1>
+      <ul class="cards">
+        {LANGS.map((l) => <li><a href={homePath(l)}>{t(l).ui.notFound} — {t(l).ui.toHome}</a></li>)}
+      </ul>
+    </main>
+  </body>
+</html>

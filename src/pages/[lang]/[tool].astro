@@ -1,0 +1,69 @@
+---
+import Converter from '../../components/Converter';
+import ToolCards from '../../components/ToolCards.astro';
+import { LANGS, t, type Lang } from '../../i18n';
+import Base from '../../layouts/Base.astro';
+import { TOOLS, type ToolSlug } from '../../tools';
+
+export function getStaticPaths() {
+  return LANGS.flatMap((lang) => TOOLS.map((tool) => ({ params: { lang, tool: tool.slug } })));
+}
+
+const lang = Astro.params.lang as Lang;
+const tool = TOOLS.find((x) => x.slug === Astro.params.tool)!;
+const d = t(lang);
+const text = d.tools[tool.slug as ToolSlug];
+const ui = d.ui;
+const faq: [string, string][] = [...text.faq, [ui.privacyQ, ui.privacyA]];
+const pageUrl = new URL(`/${lang}/${tool.slug}/`, Astro.site).href;
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: text.h1,
+    url: pageUrl,
+    applicationCategory: 'MultimediaApplication',
+    operatingSystem: 'Any (web browser)',
+    inLanguage: lang,
+    isAccessibleForFree: true,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  },
+];
+---
+
+<Base lang={lang} title={text.title} desc={text.desc} rest={`${tool.slug}/`} jsonLd={jsonLd}>
+  <section class="hero">
+    <h1>{text.h1}</h1>
+    <p class="lead">{text.intro}</p>
+  </section>
+
+  <Converter client:load slug={tool.slug} accept={tool.accept} multiple={tool.multiple} ui={ui} />
+
+  <section class="info">
+    <h2>{ui.howTitle}</h2>
+    <ol class="steps">
+      {ui.steps.map((s) => <li>{s}</li>)}
+    </ol>
+  </section>
+
+  <section class="info">
+    <h2>{ui.faqTitle}</h2>
+    {faq.map(([q, a]) => (
+      <details>
+        <summary>{q}</summary>
+        <p>{a}</p>
+      </details>
+    ))}
+  </section>
+
+  <section class="info">
+    <h2>{ui.otherTools}</h2>
+    <ToolCards lang={lang} exclude={tool.slug} />
+  </section>
+</Base>

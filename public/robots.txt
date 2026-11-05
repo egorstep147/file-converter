@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://local-file-converter.pages.dev/sitemap-index.xml

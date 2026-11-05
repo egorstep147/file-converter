@@ -1,0 +1,25 @@
+---
+import { t, toolPath, type Lang } from '../i18n';
+import { CATEGORIES, TOOLS, type ToolSlug } from '../tools';
+
+interface Props {
+  lang: Lang;
+  exclude?: string;
+}
+const { lang, exclude } = Astro.props;
+const d = t(lang);
+const ICON = { image: '🖼️', pdf: '📄', audio: '🎙️' } as const;
+---
+
+{CATEGORIES.map((cat) => (
+  <div class="cat">
+    <h3>{ICON[cat]} {d.ui.categories[cat]}</h3>
+    <ul class="cards">
+      {TOOLS.filter((x) => x.category === cat && x.slug !== exclude).map((x) => (
+        <li>
+          <a href={toolPath(lang, x.slug)}>{d.tools[x.slug as ToolSlug].name}</a>
+        </li>
+      ))}
+    </ul>
+  </div>
+))}
