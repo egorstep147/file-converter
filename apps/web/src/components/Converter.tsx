@@ -3,6 +3,7 @@ import type { Dict } from '../i18n';
 import { fmt, formatBytes, zipFiles, type OutputFile } from '../lib/files';
 import { isNativeApp, shareFiles } from '../lib/native';
 import { takeShared } from '../lib/shared';
+import { sendToChat, telegramInitData } from '../lib/telegram';
 import { COMBINES, DEFAULT_OPTIONS, runTool, sizeChange, type FileState, type Options, type Result } from '../lib/run';
 import type { ToolSlug } from '../tools';
 
@@ -225,6 +226,19 @@ function Results({ results, outputs, ui, combines, onJpg }: { results: Result[];
   const totalChange = comparable ? sizeChange(totalIn, totalOut) : null;
 
   const native = useMemo(isNativeApp, []);
+  // Telegram Mini App: downloads often don't work in its WebView → send results to the chat via the bot
+  const tg = useMemo(telegramInitData, []);
+  const [sent, setSent] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const toChat = async (files: OutputFile[]) => {
+    if (!tg) return;
+    setSent('sending');
+    try {
+      await sendToChat(files, tg);
+      setSent('done');
+    } catch {
+      setSent('error');
+    }
+  };
   // Android app: blob links can't be downloaded in the WebView → system share sheet instead
   const nativeSave = (e: { preventDefault: () => void }, files: OutputFile[]) => {
     if (!native) return;
@@ -265,8 +279,19 @@ function Results({ results, outputs, ui, combines, onJpg }: { results: Result[];
         </div>
       )}
 
+      {tg && outputs.length > 0 && (
+        <div className="tg" data-testid="telegram">
+          <button type="button" className="btn primary" onClick={() => toChat(outputs)} disabled={sent === 'sending'}>
+            {outputs.length > 1 ? ui.sendAllToChat : ui.sendToChat}
+          </button>
+          <span className={`tg-status ${sent}`} role="status">
+            {sent === 'sending' ? ui.sendingNote : sent === 'done' ? ui.sentToChat : sent === 'error' ? ui.sendFailed : ''}
+          </span>
+        </div>
+      )}
+
       {outputs.length > 1 && (
-        <button type="button" className="btn primary" onClick={downloadAll} disabled={zipping}>{ui.downloadAll}</button>
+        <button type="button" className={`btn${tg ? '' : ' primary'}`} onClick={downloadAll} disabled={zipping}>{ui.downloadAll}</button>
       )}
 
       <ul className="files">

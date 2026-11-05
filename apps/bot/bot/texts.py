@@ -33,6 +33,7 @@ RU = {
     "expired": "Кнопка устарела — пришлите файл ещё раз.",
     "error": "❌ Не получилось обработать файл. Возможно, он повреждён.",
     "pages_zip": "Страниц много — отправляю архивом.",
+    "from_app": "⇄ Из конвертера IslePlace",
 }
 
 EN = {
@@ -68,6 +69,7 @@ EN = {
     "expired": "This button has expired — please send the file again.",
     "error": "❌ Couldn't process the file. It may be damaged.",
     "pages_zip": "Many pages — sending them as a ZIP.",
+    "from_app": "⇄ From IslePlace Converter",
 }
 
 RU_LANGS = {"ru", "uk", "be", "kk"}

@@ -7,9 +7,11 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
+from aiohttp import web
 
 from .config import load
 from .handlers import router
+from .webapp import make_app
 
 
 async def main() -> None:
@@ -23,6 +25,11 @@ async def main() -> None:
         menu_button=MenuButtonWebApp(text="Converter", web_app=WebAppInfo(url=cfg.webapp_url + "/"))
     )
     await bot.set_my_commands([BotCommand(command="start", description="Help / Справка")])
+    if cfg.api_port:  # Mini App "Send to chat" (behind Caddy with HTTPS on the server)
+        runner = web.AppRunner(make_app(bot, cfg))
+        await runner.setup()
+        await web.TCPSite(runner, "0.0.0.0", cfg.api_port).start()
+        logging.info("mini app api on :%d", cfg.api_port)
     await dp.start_polling(bot, cfg=cfg, sem=asyncio.Semaphore(cfg.workers))
 
 

@@ -5,6 +5,9 @@ services:
       target: runtime
     env_file: .env
     restart: unless-stopped
+    # Mini App endpoint, only for Caddy on the same host (HTTPS is terminated there)
+    ports:
+      - "127.0.0.1:8095:8095"
     # PDF rendering and ffmpeg peak here; the VPS has ~2 GB RAM shared with other bots
     mem_limit: 400m
     cpus: 1.0

@@ -165,3 +165,26 @@ test('WebP error offers a way out: "Save as JPG instead"', async ({ page }) => {
   const name = await page.getByTestId('results').locator('a[download]').first().getAttribute('download');
   expect(name).toBe('photo.jpg');
 });
+
+test('Telegram Mini App: results go to the chat through the bot', async ({ page }) => {
+  const init = 'query_id=AAE&user=%7B%22id%22%3A1%7D&auth_date=1&hash=abc';
+  let seen: { header: string | null; body: string } | null = null;
+  await page.route('**/api/send', async (route) => {
+    const req = route.request();
+    seen = { header: await req.headerValue('x-telegram-init-data'), body: req.postDataBuffer()?.toString('latin1') ?? '' };
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}', headers: { 'Access-Control-Allow-Origin': '*' } });
+  });
+  // Telegram opens the page with the signed initData in the hash; it must survive navigation
+  await page.goto(`/en/#tgWebAppData=${encodeURIComponent(init)}`);
+  await convert(page, '/en/compress-image/', ['photo.png']);
+  const tg = page.getByTestId('telegram');
+  await tg.getByRole('button', { name: 'Send to chat' }).click();
+  await expect(tg).toContainText('Sent to the chat ✓');
+  expect(seen!.header).toBe(init);
+  expect(seen!.body).toContain('filename="photo-compressed.jpg"');
+});
+
+test('outside Telegram there is no "Send to chat"', async ({ page }) => {
+  await convert(page, '/en/compress-image/', ['photo.png']);
+  await expect(page.getByTestId('telegram')).toHaveCount(0);
+});

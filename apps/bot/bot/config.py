@@ -13,6 +13,8 @@ class Config:
     max_upload_mb: int = 50
     # CPU-heavy work (PDF rendering, ffmpeg) at once; the VPS has 1 vCPU
     workers: int = 2
+    # Mini App "Send to chat" endpoint; 0 = off
+    api_port: int = 0
 
 
 def load() -> Config:
@@ -23,4 +25,5 @@ def load() -> Config:
         bot_token=token,
         webapp_url=os.environ.get("WEBAPP_URL", Config.webapp_url).rstrip("/"),
         workers=int(os.environ.get("WORKERS", Config.workers)),
+        api_port=int(os.environ.get("API_PORT", Config.api_port)),
     )

@@ -167,3 +167,9 @@ progress.mini { width: 120px; margin: 0; }
 
 /* keyboard focus ring */
 :where(a, button, input, select, label):focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* Telegram Mini App: send results to the chat */
+.tg { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+.tg-status { color: var(--muted); font-size: .9rem; }
+.tg-status.done { color: var(--ok); font-weight: 600; }
+.tg-status.error { color: var(--err); }

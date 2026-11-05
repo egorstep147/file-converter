@@ -6,6 +6,14 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="IslePlace" />
+<script is:inline>
+  // Telegram Mini App: Telegram opens any page (usually the home page) with #tgWebAppData=...;
+  // keep it for the session so tool pages can "Send to chat" (see src/lib/telegram.ts)
+  (function () {
+    var d = new URLSearchParams(location.hash.slice(1)).get('tgWebAppData');
+    if (d) sessionStorage.setItem('tgInitData', d);
+  })();
+</script>
 <script>
   // browsers allow service workers only on https:// and localhost;
   // the Android app (Capacitor) already ships every file inside the APK, so it doesn't need one
