@@ -1,0 +1,12 @@
+---
+// PWA: installable app, offline cache and Android share target (see public/sw.js, public/manifest.webmanifest)
+---
+
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="IslePlace" />
+<script>
+  // browsers allow service workers only on https:// and localhost
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+</script>

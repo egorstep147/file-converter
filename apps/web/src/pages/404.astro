@@ -1,5 +1,6 @@
 ---
 import { DEFAULT_LANG, LANGS, homePath, t } from '../i18n';
+import PwaHead from '../components/PwaHead.astro';
 import '../styles/global.css';
 const ui = t(DEFAULT_LANG).ui;
 ---
@@ -12,6 +13,7 @@ const ui = t(DEFAULT_LANG).ui;
     <meta name="robots" content="noindex" />
     <title>404 — {ui.notFound}</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <PwaHead />
   </head>
   <body>
     <main class="center">

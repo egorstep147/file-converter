@@ -155,3 +155,19 @@ describe('run: per-file status and size change', () => {
     expect(fmt('Done: {n} of {total}', { n: 2, total: 3 })).toBe('Done: 2 of 3');
   });
 });
+
+describe('share target: tools for received files', async () => {
+  const { toolsForFile, toolsForFiles } = await import('../../src/lib/shared');
+  it('suggests tools by type or extension', () => {
+    expect(toolsForFile({ name: 'IMG_1.HEIC', type: '' })[0]).toBe('heic-to-jpg');
+    expect(toolsForFile({ name: 'voice.ogg', type: 'audio/ogg' })).toEqual(['ogg-to-mp3']);
+    expect(toolsForFile({ name: 'a.pdf', type: 'application/pdf' })[0]).toBe('compress-pdf');
+    expect(toolsForFile({ name: 'x.zip', type: 'application/zip' })).toEqual([]);
+  });
+  it('puts tools that fit every file first and merge only for 2+ PDFs', () => {
+    expect(toolsForFiles([{ name: 'a.pdf', type: 'application/pdf' }])).not.toContain('merge-pdf');
+    expect(toolsForFiles([{ name: 'a.pdf', type: 'application/pdf' }, { name: 'b.pdf', type: 'application/pdf' }])).toContain('merge-pdf');
+    const mixed = toolsForFiles([{ name: 'a.png', type: 'image/png' }, { name: 'b.heic', type: '' }]);
+    expect(mixed.slice(0, 2)).toEqual(['compress-image', 'jpg-to-pdf']);
+  });
+});

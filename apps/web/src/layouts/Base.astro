@@ -1,5 +1,6 @@
 ---
 import { HREFLANG, LANGS, DEFAULT_LANG, homePath, t, type Lang } from '../i18n';
+import PwaHead from '../components/PwaHead.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -32,6 +33,7 @@ const abs = (l: Lang) => new URL(`/${l}/${rest}`, Astro.site).href;
     <meta property="og:site_name" content={ui.siteName} />
     <meta name="theme-color" content="#2563eb" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <PwaHead />
     {jsonLd.map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
   </head>
   <body>

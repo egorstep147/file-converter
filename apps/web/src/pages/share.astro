@@ -1,0 +1,33 @@
+---
+// Landing page for the Android share target (public/share-target-sw.js redirects here).
+import PwaHead from '../components/PwaHead.astro';
+import ShareTarget, { type ShareTexts } from '../components/ShareTarget';
+import { DEFAULT_LANG, DICTS, LANGS } from '../i18n';
+import { TOOLS, type ToolSlug } from '../tools';
+import '../styles/global.css';
+
+const texts = Object.fromEntries(
+  LANGS.map((l) => {
+    const d = DICTS[l];
+    const tools = Object.fromEntries(TOOLS.map((x) => [x.slug, d.tools[x.slug as ToolSlug].name]));
+    return [l, { title: d.ui.shareTitle, empty: d.ui.shareEmpty, note: d.ui.shareNote, tools } satisfies ShareTexts];
+  }),
+);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>IslePlace Converter</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <PwaHead />
+  </head>
+  <body>
+    <main>
+      <ShareTarget client:load langs={LANGS} fallback={DEFAULT_LANG} texts={texts} />
+    </main>
+  </body>
+</html>

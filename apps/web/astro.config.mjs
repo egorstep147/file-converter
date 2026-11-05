@@ -13,7 +13,7 @@ export default defineConfig({
   integrations: [
     react(),
     sitemap({
-      filter: (page) => !/\/404\/?$/.test(page) && new URL(page).pathname !== '/',
+      filter: (page) => !/\/(404|share)\/?$/.test(page) && new URL(page).pathname !== '/',
       i18n: { defaultLocale: 'en', locales: { en: 'en', es: 'es', pt: 'pt', ru: 'ru', id: 'id' } },
     }),
   ],

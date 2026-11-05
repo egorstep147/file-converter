@@ -1,5 +1,6 @@
 ---
 import { DEFAULT_LANG, HREFLANG, LANGS, t } from '../i18n';
+import PwaHead from '../components/PwaHead.astro';
 import '../styles/global.css';
 
 const abs = (p: string) => new URL(p, Astro.site).href;
@@ -15,6 +16,7 @@ const abs = (p: string) => new URL(p, Astro.site).href;
     {LANGS.map((l) => <link rel="alternate" hreflang={HREFLANG[l]} href={abs(`/${l}/`)} />)}
     <link rel="alternate" hreflang="x-default" href={abs(`/${DEFAULT_LANG}/`)} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <PwaHead />
     <script is:inline define:vars={{ langs: LANGS, def: DEFAULT_LANG }}>
       // pick the first browser language we support, fall back to English
       const pick = (navigator.languages || [navigator.language]).map((l) => l.slice(0, 2).toLowerCase()).find((l) => langs.includes(l));

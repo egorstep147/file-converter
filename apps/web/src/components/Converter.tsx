@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import type { Dict } from '../i18n';
 import { fmt, formatBytes, zipFiles, type OutputFile } from '../lib/files';
+import { takeShared } from '../lib/shared';
 import { COMBINES, DEFAULT_OPTIONS, runTool, sizeChange, type FileState, type Options, type Result } from '../lib/run';
 import type { ToolSlug } from '../tools';
 
@@ -44,7 +45,7 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
     setResults(null);
   };
 
-  const add = (list: FileList | null) => {
+  const add = (list: FileList | File[] | null) => {
     if (!list?.length) return;
     const picked = Array.from(list);
     setFiles((prev) => {
@@ -55,9 +56,16 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
     setResults(null);
   };
 
-  // on a slow connection the user may pick files before React hydrates: pick them up
   useEffect(() => {
+    // on a slow connection the user may pick files before React hydrates: pick them up
     if (input.current?.files?.length) add(input.current.files);
+    // Android "Share → IslePlace" → /share/ → this tool with ?shared=1
+    if (new URLSearchParams(location.search).has('shared')) {
+      takeShared().then((files) => {
+        if (files.length) add(files);
+        history.replaceState(null, '', location.pathname);
+      });
+    }
   }, []);
 
   const onDrop = (e: DragEvent) => {
