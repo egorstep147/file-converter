@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">IslePlace Converter</string>
+    <string name="title_activity_main">IslePlace Converter</string>
+    <string name="package_name">com.isleplace.converter</string>
+    <string name="custom_url_scheme">com.isleplace.converter</string>
+</resources>

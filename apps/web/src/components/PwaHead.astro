@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="IslePlace" />
 <script>
-  // browsers allow service workers only on https:// and localhost
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+  // browsers allow service workers only on https:// and localhost;
+  // the Android app (Capacitor) already ships every file inside the APK, so it doesn't need one
+  const app = (window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+  if ('serviceWorker' in navigator && !app) navigator.serviceWorker.register('/sw.js');
 </script>

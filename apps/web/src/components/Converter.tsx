@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import type { Dict } from '../i18n';
 import { fmt, formatBytes, zipFiles, type OutputFile } from '../lib/files';
+import { isNativeApp, shareFiles } from '../lib/native';
 import { takeShared } from '../lib/shared';
 import { COMBINES, DEFAULT_OPTIONS, runTool, sizeChange, type FileState, type Options, type Result } from '../lib/run';
 import type { ToolSlug } from '../tools';
@@ -223,10 +224,19 @@ function Results({ results, outputs, ui, combines, onJpg }: { results: Result[];
   const totalOut = ok.reduce((n, r) => n + r.outputs.reduce((m, o) => m + o.blob.size, 0), 0);
   const totalChange = comparable ? sizeChange(totalIn, totalOut) : null;
 
+  const native = useMemo(isNativeApp, []);
+  // Android app: blob links can't be downloaded in the WebView → system share sheet instead
+  const nativeSave = (e: { preventDefault: () => void }, files: OutputFile[]) => {
+    if (!native) return;
+    e.preventDefault();
+    shareFiles(files).catch(() => {});
+  };
+
   const downloadAll = async () => {
     setZipping(true);
     try {
       const zip = await zipFiles(outputs);
+      if (native) return await shareFiles([{ name: 'converted.zip', blob: zip }]);
       const a = document.createElement('a');
       a.href = URL.createObjectURL(zip);
       a.download = 'converted.zip';
@@ -283,7 +293,7 @@ function Results({ results, outputs, ui, combines, onJpg }: { results: Result[];
                         </small>
                       </span>
                       {change !== null && <span className={`badge ${change < 0 ? 'ok' : 'neutral'}`}>{pctLabel(change)}</span>}
-                      <a className="btn" href={urls.get(o)} download={o.name}>↓ {ui.download}</a>
+                      <a className="btn" href={urls.get(o)} download={o.name} onClick={(e) => nativeSave(e, [o])}>↓ {ui.download}</a>
                     </div>
                   );
                 })}

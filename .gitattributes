@@ -5,3 +5,5 @@
 *.webp binary
 *.pdf binary
 *.ogg binary
+*.bat text eol=crlf
+*.jar binary

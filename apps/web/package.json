@@ -17,12 +17,17 @@
     "fixtures": "node scripts/make-fixtures.mjs",
     "indexnow": "node scripts/indexnow.mjs",
     "deploy": "npm run build && wrangler deploy",
-    "astro": "astro"
+    "astro": "astro",
+    "android:sync": "npm run build && cap sync android",
+    "android:apk": "npm run android:sync && cd android && gradlew assembleDebug"
   },
   "dependencies": {
     "@astrojs/react": "^7.1.2",
     "@astrojs/sitemap": "^3.7.4",
     "@breezystack/lamejs": "^1.2.7",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "astro": "^7.4.5",
@@ -36,6 +41,8 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
     "@playwright/test": "^1.64.1",
     "@vite-pwa/assets-generator": "^2.0.0",
     "typescript": "^6.0.3",
