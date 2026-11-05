@@ -3,7 +3,7 @@ import type { Dict } from './en';
 export const id: Dict = {
   langName: 'Bahasa Indonesia',
   ui: {
-    siteName: 'Local File Converter',
+    siteName: 'IslePlace Converter',
     tagline: 'Ubah foto, PDF, dan pesan suara langsung di browser Anda',
     privacy: 'File Anda tidak pernah keluar dari perangkat: semuanya diproses secara lokal di browser.',
     homeTitle: 'Konverter file online gratis — privat, tanpa unggah',

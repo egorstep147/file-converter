@@ -3,7 +3,7 @@ import type { Dict } from './en';
 export const ru: Dict = {
   langName: 'Русский',
   ui: {
-    siteName: 'Local File Converter',
+    siteName: 'IslePlace Converter',
     tagline: 'Конвертируйте фото, PDF и голосовые прямо в браузере',
     privacy: 'Файлы не покидают ваше устройство: всё обрабатывается локально в браузере.',
     homeTitle: 'Бесплатный онлайн-конвертер файлов — без загрузки на сервер',

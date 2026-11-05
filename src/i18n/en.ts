@@ -15,7 +15,7 @@ export interface ToolText {
 export const en = {
   langName: 'English',
   ui: {
-    siteName: 'Local File Converter',
+    siteName: 'IslePlace Converter',
     tagline: 'Convert photos, PDF and voice messages right in your browser',
     privacy: 'Your files never leave your device: everything runs locally in the browser.',
     homeTitle: 'Free online file converter — private, no upload',
