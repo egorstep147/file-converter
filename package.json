@@ -15,7 +15,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "fixtures": "node scripts/make-fixtures.mjs",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name local-file-converter",
+    "deploy": "npm run build && wrangler deploy",
     "astro": "astro"
   },
   "dependencies": {

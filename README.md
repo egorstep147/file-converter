@@ -57,13 +57,16 @@ CI (`.github/workflows/ci.yml`) runs type check, unit and e2e tests on every pus
 - **Tool:** add an entry to `src/tools.ts`, a runner case in `src/lib/run.ts` (and options UI in `Converter.tsx` if needed), texts in every `src/i18n/*.ts`. TypeScript fails the build until every language has the texts.
 - **Language:** copy `src/i18n/en.ts` to `src/i18n/<code>.ts` (typed as `Dict`), register it in `src/i18n/index.ts` and in the sitemap `locales` in `astro.config.mjs`.
 
-## Deploy (Cloudflare Pages)
+## Deploy (Cloudflare)
 
-The site is fully static (`dist/`).
+Live: https://local-file-converter.file-converter.workers.dev
+
+The site is fully static (`dist/`) and is served by Cloudflare Workers **static assets** (`wrangler.jsonc`: assets only, no server code, `404-page` for unknown URLs). Cloudflare now hosts new Pages projects on Workers; no Astro server adapter is needed.
 
 ```bash
 npx wrangler login   # once, opens the browser
-npm run deploy       # build + upload to the "local-file-converter" Pages project
+npm run deploy       # build + wrangler deploy
+BASE_URL=https://local-file-converter.file-converter.workers.dev npm run test:e2e   # e2e against production
 ```
 
 Set `SITE_URL` when building for a custom domain (used in canonical/hreflang links and the sitemap), and update `public/robots.txt`.

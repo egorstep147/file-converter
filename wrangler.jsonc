@@ -1,0 +1,10 @@
+// Cloudflare Workers static assets: the site is plain files from dist/, no server code.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "local-file-converter",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}

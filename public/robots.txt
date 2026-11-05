@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://local-file-converter.pages.dev/sitemap-index.xml
+Sitemap: https://local-file-converter.file-converter.workers.dev/sitemap-index.xml
