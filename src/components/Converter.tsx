@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import type { Dict } from '../i18n';
-import { formatBytes, zipFiles, type OutputFile } from '../lib/files';
-import { DEFAULT_OPTIONS, runTool, type Options, type Result } from '../lib/run';
+import { fmt, formatBytes, zipFiles, type OutputFile } from '../lib/files';
+import { COMBINES, DEFAULT_OPTIONS, runTool, sizeChange, type FileState, type Options, type Result } from '../lib/run';
 import type { ToolSlug } from '../tools';
 
 type UI = Dict['ui'];
@@ -14,23 +14,45 @@ interface Props {
 }
 
 const ORDERED: ToolSlug[] = ['merge-pdf', 'jpg-to-pdf'];
+const READY: FileState = { status: 'ready', progress: 0 };
+const pctLabel = (n: number) => (n > 0 ? `+${n}%` : `−${Math.abs(n)}%`);
+
+function errorText(r: Result, ui: UI): string {
+  if (r.error === 'webp') return ui.errorWebp;
+  if (r.error === 'ranges') return ui.rangesError;
+  return ui.error;
+}
 
 export default function Converter({ slug, accept, multiple, ui }: Props) {
   const [files, setFiles] = useState<File[]>([]);
+  const [states, setStates] = useState<FileState[]>([]);
   const [opts, setOpts] = useState<Options>(DEFAULT_OPTIONS);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<Result[] | null>(null);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const inputId = useId();
+  const combines = COMBINES.includes(slug);
 
   const set = <K extends keyof Options>(k: K, v: Options[K]) => setOpts((o) => ({ ...o, [k]: v }));
+
+  /** Any change of the file list invalidates statuses and results. */
+  const replaceFiles = (next: File[]) => {
+    setFiles(next);
+    setStates(next.map(() => READY));
+    setResults(null);
+  };
 
   const add = (list: FileList | null) => {
     if (!list?.length) return;
     const picked = Array.from(list);
+    setFiles((prev) => {
+      const next = multiple ? [...prev, ...picked] : picked.slice(0, 1);
+      setStates(next.map(() => READY));
+      return next;
+    });
     setResults(null);
-    setFiles((prev) => (multiple ? [...prev, ...picked] : picked.slice(0, 1)));
   };
 
   // on a slow connection the user may pick files before React hydrates: pick them up
@@ -43,94 +65,155 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
     setOver(false);
     add(e.dataTransfer.files);
   };
+  const dragProps = {
+    onDragOver: (e: DragEvent) => {
+      e.preventDefault();
+      setOver(true);
+    },
+    onDragLeave: () => setOver(false),
+    onDrop,
+  };
 
-  const move = (i: number, d: -1 | 1) =>
-    setFiles((prev) => {
-      const next = [...prev];
-      const j = i + d;
-      if (j < 0 || j >= next.length) return prev;
-      [next[i], next[j]] = [next[j], next[i]];
-      return next;
-    });
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d;
+    if (j < 0 || j >= files.length) return;
+    const next = [...files];
+    [next[i], next[j]] = [next[j], next[i]];
+    replaceFiles(next);
+  };
 
   const reset = () => {
-    setFiles([]);
-    setResults(null);
+    replaceFiles([]);
     setProgress(0);
     if (input.current) input.current.value = '';
   };
 
-  const run = async () => {
+  const run = async (o: Options = opts) => {
     setBusy(true);
     setProgress(0);
     setResults(null);
+    setStates(files.map(() => READY));
     try {
-      setResults(await runTool(slug, files, opts, setProgress));
+      setResults(
+        await runTool(slug, files, o, setProgress, (i, s) =>
+          setStates((prev) => {
+            const next = [...prev];
+            next[i] = s;
+            return next;
+          }),
+        ),
+      );
     } finally {
       setBusy(false);
     }
   };
 
   const outputs = useMemo(() => results?.flatMap((r) => r.outputs) ?? [], [results]);
+  const doneCount = states.filter((s) => s.status === 'done' || s.status === 'error').length;
   const canRun = files.length > 0 && !busy && !(slug === 'merge-pdf' && files.length < 2);
 
   return (
     <div className="converter">
-      <label
-        className={`drop${over ? ' over' : ''}`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setOver(true);
+      <input
+        ref={input}
+        id={inputId}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        onChange={(e) => {
+          add(e.target.files);
+          e.target.value = ''; // allow picking the same file again
         }}
-        onDragLeave={() => setOver(false)}
-        onDrop={onDrop}
-      >
-        <input ref={input} type="file" accept={accept} multiple={multiple} onChange={(e) => add(e.target.files)} hidden data-testid="file-input" />
-        <span className="drop-title">{multiple ? ui.drop : ui.dropOne}</span>
-        <span className="drop-or">{ui.or}</span>
-        <span className="btn">{multiple ? ui.choose : ui.chooseOne}</span>
-        <span className="drop-privacy">🔒 {ui.privacy}</span>
-      </label>
+        hidden
+        data-testid="file-input"
+      />
+
+      {files.length === 0 ? (
+        <label htmlFor={inputId} className={`drop${over ? ' over' : ''}`} {...dragProps}>
+          <span className="drop-title">{multiple ? ui.drop : ui.dropOne}</span>
+          <span className="drop-or">{ui.or}</span>
+          <span className="btn">{multiple ? ui.choose : ui.chooseOne}</span>
+          <span className="drop-privacy">🔒 {ui.privacy}</span>
+        </label>
+      ) : (
+        <label htmlFor={inputId} className={`drop compact${over ? ' over' : ''}${busy ? ' off' : ''}`} {...dragProps} data-testid="add-more">
+          <span aria-hidden="true">＋</span> {multiple ? ui.addMore : ui.replaceFile}
+        </label>
+      )}
 
       {files.length > 0 && (
         <>
           <ul className="files" aria-label={ui.files}>
-            {files.map((f, i) => (
-              <li key={`${f.name}-${i}`}>
-                <span className="fname">{f.name}</span>
-                <span className="fsize">{formatBytes(f.size)}</span>
-                {ORDERED.includes(slug) && files.length > 1 && (
-                  <>
-                    <button type="button" className="icon" onClick={() => move(i, -1)} disabled={i === 0 || busy} aria-label={ui.moveUp} title={ui.moveUp}>↑</button>
-                    <button type="button" className="icon" onClick={() => move(i, 1)} disabled={i === files.length - 1 || busy} aria-label={ui.moveDown} title={ui.moveDown}>↓</button>
-                  </>
-                )}
-                <button type="button" className="icon" onClick={() => setFiles(files.filter((_, j) => j !== i))} disabled={busy} aria-label={ui.remove} title={ui.remove}>✕</button>
-              </li>
-            ))}
+            {files.map((f, i) => {
+              const st = states[i] ?? READY;
+              const r = combines ? undefined : results?.[i];
+              const reason = st.status === 'error' && r?.error ? errorText(r, ui) : '';
+              return (
+                <li key={`${f.name}-${i}`} className={st.status === 'error' ? 'err' : ''} data-status={st.status}>
+                  <span className="fname">
+                    {f.name}
+                    <small className={`meta${reason ? ' bad' : ''}`}>
+                      {formatBytes(f.size)}
+                      {reason ? ` · ${reason}` : ''}
+                    </small>
+                  </span>
+                  {st.status === 'processing' && (
+                    <>
+                      <progress className="mini" value={st.progress} max={1} />
+                      <span className="fsize">{Math.round(st.progress * 100)}%</span>
+                    </>
+                  )}
+                  {st.status === 'done' && <span className="badge ok">✓ {ui.statusDone}</span>}
+                  {st.status === 'error' && <span className="badge bad">! {ui.statusError}</span>}
+                  {st.status === 'ready' && !busy && (
+                    <>
+                      {ORDERED.includes(slug) && files.length > 1 && (
+                        <>
+                          <button type="button" className="icon" onClick={() => move(i, -1)} disabled={i === 0} aria-label={ui.moveUp} title={ui.moveUp}>↑</button>
+                          <button type="button" className="icon" onClick={() => move(i, 1)} disabled={i === files.length - 1} aria-label={ui.moveDown} title={ui.moveDown}>↓</button>
+                        </>
+                      )}
+                      <button type="button" className="icon" onClick={() => replaceFiles(files.filter((_, j) => j !== i))} aria-label={ui.remove} title={ui.remove}>✕</button>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
 
           <ToolOptions slug={slug} o={opts} set={set} ui={ui} />
 
           <div className="actions">
-            <button type="button" className="btn primary" onClick={run} disabled={!canRun}>
+            <button type="button" className="btn primary" onClick={() => run()} disabled={!canRun}>
               {busy ? `${ui.working} ${Math.round(progress * 100)}%` : ui.convert}
             </button>
             <button type="button" className="btn ghost" onClick={reset} disabled={busy}>{ui.clear}</button>
           </div>
-          {busy && <progress value={progress} max={1} />}
+          {busy && (
+            <p className="status" role="status">
+              {fmt(ui.processed, { done: doneCount, total: files.length })}
+            </p>
+          )}
         </>
       )}
 
-      {results && <Results results={results} outputs={outputs} ui={ui} />}
+      {results && <Results results={results} outputs={outputs} ui={ui} combines={combines} onJpg={() => run({ ...opts, fallbackJpeg: true })} />}
     </div>
   );
 }
 
-function Results({ results, outputs, ui }: { results: Result[]; outputs: OutputFile[]; ui: UI }) {
+function Results({ results, outputs, ui, combines, onJpg }: { results: Result[]; outputs: OutputFile[]; ui: UI; combines: boolean; onJpg: () => void }) {
   const urls = useMemo(() => new Map(outputs.map((o) => [o, URL.createObjectURL(o.blob)])), [outputs]);
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
   const [zipping, setZipping] = useState(false);
+
+  const ok = results.filter((r) => !r.error);
+  const webpFailed = results.some((r) => r.error === 'webp');
+  // sizes are comparable when every successful input produced exactly one file
+  const comparable = ok.length > 0 && ok.every((r) => r.outputs.length === 1);
+  const totalIn = ok.reduce((n, r) => n + r.inputSize, 0);
+  const totalOut = ok.reduce((n, r) => n + r.outputs.reduce((m, o) => m + o.blob.size, 0), 0);
+  const totalChange = comparable ? sizeChange(totalIn, totalOut) : null;
 
   const downloadAll = async () => {
     setZipping(true);
@@ -149,30 +232,57 @@ function Results({ results, outputs, ui }: { results: Result[]; outputs: OutputF
   return (
     <section className="results" aria-label={ui.results} data-testid="results">
       <h2>{ui.results}</h2>
+
+      {ok.length > 0 && (
+        <div className="alert ok" role="status" data-testid="summary">
+          <strong>{fmt(ui.summaryDone, { n: ok.length, total: results.length })}</strong>
+          {totalChange !== null && <span>{fmt(ui.sizeSummary, { from: formatBytes(totalIn), to: formatBytes(totalOut), pct: pctLabel(totalChange) })}</span>}
+        </div>
+      )}
+
+      {webpFailed && (
+        <div className="alert bad" role="alert">
+          <strong>{ui.errorWebp}</strong>
+          <button type="button" className="btn" onClick={onJpg}>{ui.saveAsJpg}</button>
+        </div>
+      )}
+
       {outputs.length > 1 && (
         <button type="button" className="btn primary" onClick={downloadAll} disabled={zipping}>{ui.downloadAll}</button>
       )}
+
       <ul className="files">
-        {results.map((r, i) => (
-          <li key={i} className={r.error ? 'err' : ''}>
-            {r.error ? (
-              <span className="fname">
-                {r.source}: {r.error === 'webp' ? ui.errorWebp : r.error === 'ranges' ? ui.rangesError : ui.error}
-              </span>
-            ) : (
+        {results.map((r, i) =>
+          r.error ? (
+            // per-file errors are shown in the file list; combined tools have no row there
+            combines ? (
+              <li key={i} className="err">
+                <span className="fname">{r.source}: {errorText(r, ui)}</span>
+              </li>
+            ) : null
+          ) : (
+            <li key={i}>
               <div className="outs">
                 {r.note === 'notSmaller' && <p className="note">{r.source}: {ui.notSmaller}</p>}
-                {r.outputs.map((o, j) => (
-                  <div key={j} className="out">
-                    <span className="fname">{o.name}</span>
-                    <span className="fsize">{formatBytes(o.blob.size)}</span>
-                    <a className="btn" href={urls.get(o)} download={o.name}>{ui.download}</a>
-                  </div>
-                ))}
+                {r.outputs.map((o, j) => {
+                  const change = r.outputs.length === 1 && r.note !== 'notSmaller' ? sizeChange(r.inputSize, o.blob.size) : null;
+                  return (
+                    <div key={j} className="out">
+                      <span className="fname">
+                        {o.name}
+                        <small className="meta">
+                          {change !== null ? `${formatBytes(r.inputSize)} → ${formatBytes(o.blob.size)}` : formatBytes(o.blob.size)}
+                        </small>
+                      </span>
+                      {change !== null && <span className={`badge ${change < 0 ? 'ok' : 'neutral'}`}>{pctLabel(change)}</span>}
+                      <a className="btn" href={urls.get(o)} download={o.name}>↓ {ui.download}</a>
+                    </div>
+                  );
+                })}
               </div>
-            )}
-          </li>
-        ))}
+            </li>
+          ),
+        )}
       </ul>
     </section>
   );

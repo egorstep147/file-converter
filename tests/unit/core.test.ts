@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 import { floatTo16, decodeOggOpus, encodeMp3 } from '../../src/lib/audio';
-import { formatBytes, parseRanges, renameTo, uniqueNames, zipFiles } from '../../src/lib/files';
+import { fmt, formatBytes, parseRanges, renameTo, uniqueNames, zipFiles } from '../../src/lib/files';
 import { fitSize, looksLikeHeic } from '../../src/lib/image';
 import { imagesToPdf, mergePdfs, pageCount, splitPdf } from '../../src/lib/pdf';
-import { autoType } from '../../src/lib/run';
+import { autoType, DEFAULT_OPTIONS, runTool, sizeChange, type FileState } from '../../src/lib/run';
 import { DICTS } from '../../src/i18n';
 import { TOOLS } from '../../src/tools';
 
@@ -120,5 +120,38 @@ describe('i18n', () => {
         expect(tx.faq.length).toBeGreaterThanOrEqual(2);
       }
     }
+  });
+});
+
+describe('run: per-file status and size change', () => {
+  it('reports processing -> done for every file and keeps input size', async () => {
+    const seen: [number, FileState['status']][] = [];
+    const res = await runTool('split-pdf', [fx('text.pdf', 'application/pdf')], DEFAULT_OPTIONS, () => {}, (i, s) => seen.push([i, s.status]));
+    expect(seen[0]).toEqual([0, 'processing']);
+    expect(seen.at(-1)).toEqual([0, 'done']);
+    expect(res[0].inputSize).toBe(fx('text.pdf').size);
+    expect(res[0].outputs).toHaveLength(3);
+  });
+
+  it('marks a bad range as an error on that file', async () => {
+    const states: FileState['status'][] = [];
+    const res = await runTool('split-pdf', [fx('text.pdf')], { ...DEFAULT_OPTIONS, splitMode: 'ranges', ranges: '7-9' }, () => {}, (_, s) => states.push(s.status));
+    expect(res[0].error).toBe('ranges');
+    expect(states.at(-1)).toBe('error');
+  });
+
+  it('merge reports every input file and the total input size', async () => {
+    const seen = new Set<string>();
+    const files = [fx('text.pdf'), fx('scan.pdf')];
+    const res = await runTool('merge-pdf', files, DEFAULT_OPTIONS, () => {}, (i, s) => seen.add(`${i}:${s.status}`));
+    expect([...seen]).toEqual(expect.arrayContaining(['0:done', '1:done']));
+    expect(res[0].inputSize).toBe(files[0].size + files[1].size);
+  });
+
+  it('computes size change and fills templates', () => {
+    expect(sizeChange(2400, 640)).toBe(-73);
+    expect(sizeChange(100, 112)).toBe(12);
+    expect(sizeChange(0, 5)).toBeNull();
+    expect(fmt('Done: {n} of {total}', { n: 2, total: 3 })).toBe('Done: 2 of 3');
   });
 });

@@ -17,6 +17,8 @@ export interface Options {
   dpi: number;
   level: 'strong' | 'medium' | 'light';
   kbps: number;
+  /** retry path after "browser cannot encode WebP": save JPEG instead */
+  fallbackJpeg: boolean;
 }
 
 export const DEFAULT_OPTIONS: Options = {
@@ -33,11 +35,14 @@ export const DEFAULT_OPTIONS: Options = {
   dpi: 150,
   level: 'medium',
   kbps: 64,
+  fallbackJpeg: false,
 };
 
 export interface Result {
   /** input file name(s) this result belongs to */
   source: string;
+  /** total size of the input file(s), for "2,4 MB → 640 KB" */
+  inputSize: number;
   outputs: OutputFile[];
   note?: 'notSmaller';
   error?: 'webp' | 'ranges' | 'generic';
@@ -45,6 +50,13 @@ export interface Result {
 }
 
 export type Progress = (fraction: number) => void;
+
+export interface FileState {
+  status: 'ready' | 'processing' | 'done' | 'error';
+  /** 0..1 while processing */
+  progress: number;
+}
+export type OnFile = (index: number, state: FileState) => void;
 
 const num = (s: string) => {
   const n = Number(s);
@@ -74,13 +86,13 @@ function classify(e: unknown): Pick<Result, 'error' | 'detail'> {
   return { error: 'generic', detail: String((e as Error)?.message ?? e) };
 }
 
-async function one(slug: ToolSlug, f: File, o: Options, progress: Progress): Promise<Omit<Result, 'source'>> {
-  const fixed = FIXED[slug];
+async function one(slug: ToolSlug, f: File, o: Options, progress: Progress): Promise<Omit<Result, 'source' | 'inputSize'>> {
+  const fixed = FIXED[slug] && (o.fallbackJpeg ? 'image/jpeg' : FIXED[slug]);
   if (fixed) return { outputs: [await convertImage(f, { type: fixed, quality: 0.92 })] };
 
   switch (slug) {
     case 'compress-image': {
-      const type = o.format === 'auto' ? autoType(f, 'compress') : o.format;
+      const type = o.fallbackJpeg ? 'image/jpeg' : o.format === 'auto' ? autoType(f, 'compress') : o.format;
       const out = await convertImage(f, { type, quality: o.quality / 100, maxWidth: num(o.maxWidth), suffix: '-compressed' });
       // never hand back a bigger file in the same format
       if (out.blob.size >= f.size && f.type === type) return { outputs: [{ name: f.name, blob: f }], note: 'notSmaller' };
@@ -140,26 +152,43 @@ async function combined(slug: ToolSlug, files: File[], o: Options, progress: Pro
   return pdf.imagesToPdf(images, o.pageSize);
 }
 
-/** Run a tool over the files, reporting overall progress 0..1; errors are per file, never thrown. */
-export async function runTool(slug: ToolSlug, files: File[], o: Options, progress: Progress): Promise<Result[]> {
+/**
+ * Run a tool over the files. Reports overall progress 0..1 and the state of every file;
+ * errors are per file, never thrown. For non-combining tools results[i] belongs to files[i].
+ */
+export async function runTool(slug: ToolSlug, files: File[], o: Options, progress: Progress, onFile: OnFile = () => {}): Promise<Result[]> {
   if (COMBINES.includes(slug)) {
+    const source = files.map((f) => f.name).join(', ');
+    const inputSize = files.reduce((n, f) => n + f.size, 0);
+    files.forEach((_, i) => onFile(i, { status: 'processing', progress: 0 }));
+    let r: Result;
     try {
-      const out = await combined(slug, files, o, progress);
-      return [{ source: files.map((f) => f.name).join(', '), outputs: [out] }];
+      r = { source, inputSize, outputs: [await combined(slug, files, o, progress)] };
     } catch (e) {
-      return [{ source: files.map((f) => f.name).join(', '), outputs: [], ...classify(e) }];
+      r = { source, inputSize, outputs: [], ...classify(e) };
     }
+    files.forEach((_, i) => onFile(i, { status: r.error ? 'error' : 'done', progress: 1 }));
+    return [r];
   }
   const results: Result[] = [];
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
+    onFile(i, { status: 'processing', progress: 0 });
+    let r: Result;
     try {
-      const r = await one(slug, f, o, (p) => progress((i + p) / files.length));
-      results.push({ source: f.name, ...r });
+      r = { source: f.name, inputSize: f.size, ...(await one(slug, f, o, (p) => { progress((i + p) / files.length); onFile(i, { status: 'processing', progress: p }); })) };
     } catch (e) {
-      results.push({ source: f.name, outputs: [], ...classify(e) });
+      r = { source: f.name, inputSize: f.size, outputs: [], ...classify(e) };
     }
+    results.push(r);
+    onFile(i, { status: r.error ? 'error' : 'done', progress: 1 });
     progress((i + 1) / files.length);
   }
   return results;
+}
+
+/** "2,4 MB → 640 KB": percent change of size, e.g. -73 or +12; null when not comparable. */
+export function sizeChange(inputSize: number, outputSize: number): number | null {
+  if (!inputSize) return null;
+  return Math.round((outputSize / inputSize - 1) * 100);
 }

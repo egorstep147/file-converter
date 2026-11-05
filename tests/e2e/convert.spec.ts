@@ -34,10 +34,34 @@ test('HEIC to JPG', async ({ page }) => {
   expect(out.head.startsWith(JPG)).toBe(true);
 });
 
-test('compress image makes it smaller', async ({ page }) => {
+test('compress image makes it smaller and shows the saving', async ({ page }) => {
   const [out] = await convert(page, '/en/compress-image/', ['photo.png']);
   expect(out.name).toBe('photo-compressed.jpg');
   expect(out.size).toBeLessThan(191_228);
+  // per-file status, summary "Done: 1 of 1" and "187 KB → ... (−NN%)"
+  await expect(page.locator('.files li[data-status=done]')).toHaveCount(1);
+  await expect(page.getByTestId('summary')).toContainText('Done: 1 of 1');
+  await expect(page.getByTestId('summary')).toContainText(/Total size: 187 KB → .+ \(−\d+%\)/);
+  await expect(page.getByTestId('results').locator('.badge.ok')).toHaveText(/^−\d+%$/);
+});
+
+test('after choosing files the drop zone collapses into "Add more files"', async ({ page }) => {
+  await page.goto('/en/heic-to-jpg/');
+  await page.locator('astro-island:not([ssr])').waitFor({ state: 'attached' });
+  await page.getByTestId('file-input').setInputFiles(fx('photo.heic'));
+  await expect(page.getByTestId('add-more')).toHaveText(/Add more files/);
+  await expect(page.locator('.drop-title')).toHaveCount(0);
+  await page.getByTestId('file-input').setInputFiles(fx('photo.jpg'));
+  await expect(page.locator('.files li')).toHaveCount(2);
+});
+
+test('icon buttons and language chips are at least 44px', async ({ page }) => {
+  await page.goto('/en/merge-pdf/');
+  await page.locator('astro-island:not([ssr])').waitFor({ state: 'attached' });
+  await page.getByTestId('file-input').setInputFiles([fx('text.pdf'), fx('scan.pdf')]);
+  for (const box of [await page.locator('.icon').first().boundingBox(), await page.locator('.langs a').first().boundingBox()]) {
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  }
 });
 
 test('resize image by pixels', async ({ page }) => {
@@ -88,6 +112,7 @@ test('split PDF: bad range shows an error', async ({ page }) => {
     await page.locator('.options input[type=text]').fill('7-9');
   });
   await expect(page.getByText('Check the page numbers')).toBeVisible();
+  await expect(page.locator('.files li[data-status=error] .badge.bad')).toHaveCount(1);
 });
 
 test('PDF to JPG', async ({ page }) => {
@@ -122,4 +147,21 @@ test('pages: SEO tags, hreflang, other languages render', async ({ page }) => {
   await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(2);
   await page.goto('/id/');
   await expect(page.locator('.cards a')).toHaveCount(13);
+});
+
+test('WebP error offers a way out: "Save as JPG instead"', async ({ page }) => {
+  // emulate Safari: canvas silently returns PNG when asked for WebP
+  await page.addInitScript(() => {
+    const orig = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb, type, q) {
+      return orig.call(this, cb, type === 'image/webp' ? 'image/png' : type, q);
+    };
+  });
+  await convert(page, '/en/jpg-to-webp/', ['photo.jpg']);
+  await expect(page.locator('.files li[data-status=error]')).toHaveCount(1);
+  await expect(page.getByRole('alert')).toContainText('cannot save WebP');
+  await page.getByRole('button', { name: 'Save as JPG instead' }).click();
+  await expect(page.locator('.files li[data-status=done]')).toHaveCount(1);
+  const name = await page.getByTestId('results').locator('a[download]').first().getAttribute('download');
+  expect(name).toBe('photo.jpg');
 });

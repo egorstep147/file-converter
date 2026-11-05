@@ -91,3 +91,8 @@ export function parseRanges(input: string, total: number): number[] {
   }
   return out;
 }
+
+/** Fill "{name}" placeholders: fmt('Done: {n} of {total}', {n: 2, total: 3}). */
+export function fmt(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? `{${k}}`));
+}
