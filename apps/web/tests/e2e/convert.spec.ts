@@ -63,12 +63,26 @@ test('icon buttons and language picker are at least 44px', async ({ page }) => {
     expect(box!.height).toBeGreaterThanOrEqual(44);
   }
   await page.locator('.lang-trigger').click();
-  await expect(page.locator('.lang-menu a')).toHaveCount(25);
+  await expect(page.locator('.lang-menu a')).toHaveCount(60);
   const itemBox = await page.locator('.lang-menu a').first().boundingBox();
   expect(itemBox!.height).toBeGreaterThanOrEqual(44);
+  const panelBox = await page.locator('.lang-panel').boundingBox();
+  const vp = page.viewportSize()!;
+  expect(panelBox!.x).toBeGreaterThanOrEqual(0);
+  expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(vp.width);
   await page.locator('.lang-search').fill('zh');
+  await expect(page.locator('.lang-menu a:visible')).toHaveCount(2);
+  await expect(page.locator('.lang-menu a:visible').nth(0)).toContainText('简体中文');
+  await expect(page.locator('.lang-menu a:visible').nth(1)).toContainText('繁體中文');
+  await page.locator('.lang-search').fill('bengali');
   await expect(page.locator('.lang-menu a:visible')).toHaveCount(1);
-  await expect(page.locator('.lang-menu a:visible')).toContainText('中文');
+  await expect(page.locator('.lang-menu a:visible')).toContainText('বাংলা');
+  await page.locator('.lang-tab[data-region="mea"]').click();
+  await expect(page.locator('.lang-menu a:visible')).toHaveCount(9);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobBox = await page.locator('.lang-panel').boundingBox();
+  expect(mobBox!.x).toBeGreaterThanOrEqual(0);
+  expect(mobBox!.x + mobBox!.width).toBeLessThanOrEqual(390);
 });
 
 test('resize image by pixels', async ({ page }) => {
@@ -150,17 +164,24 @@ test('voice message to MP3', async ({ page }) => {
 test('pages: SEO tags, hreflang, other languages render', async ({ page }) => {
   await page.goto('/ru/heic-to-jpg/');
   await expect(page.locator('h1')).toHaveText('Конвертировать HEIC в JPG');
-  await expect(page.locator('link[rel=alternate][hreflang]')).toHaveCount(26);
+  await expect(page.locator('link[rel=alternate][hreflang]')).toHaveCount(61);
   await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(3);
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-cover\.png$/);
   await page.goto('/id/');
   await expect(page.locator('.cards a')).toHaveCount(20);
   await page.goto('/zh/heic-to-jpg/');
   await expect(page.locator('h1')).toHaveText('将 HEIC 转换为 JPG');
+  await page.goto('/zh-tw/');
+  await expect(page.locator('.cards a')).toHaveCount(20);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-Hant');
+  await page.goto('/bn/');
+  await expect(page.locator('.cards a')).toHaveCount(20);
   await page.goto('/hi/');
   await expect(page.locator('.cards a')).toHaveCount(20);
-  await page.goto('/ar/');
-  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  for (const rtlLang of ['ar', 'ur', 'fa', 'he']) {
+    await page.goto(`/${rtlLang}/`);
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  }
 });
 
 test('WebP error offers a way out: "Save as JPG instead"', async ({ page }) => {

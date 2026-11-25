@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "description": "Private in-browser file converter: HEIC/JPG/PNG/WebP, PDF tools, voice messages to MP3. Static Astro site, 25 languages.",
+  "description": "Private in-browser file converter: HEIC/JPG/PNG/WebP, PDF tools, voice messages to MP3. Static Astro site, 60 languages.",
   "engines": {
     "node": ">=22"
   },

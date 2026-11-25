@@ -1,7 +1,7 @@
 import type { Dict } from './en';
 
 export const zh: Dict = {
-  langName: '中文',
+  langName: '简体中文',
   ui: {
     siteName: 'IslePlace Converter',
     tagline: '直接在浏览器中转换照片、PDF 和语音消息',

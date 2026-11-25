@@ -19,9 +19,21 @@ const abs = (p: string) => new URL(p, Astro.site).href;
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <PwaHead />
     <script is:inline define:vars={{ langs: LANGS, def: DEFAULT_LANG }}>
-      // pick the first browser language we support, fall back to English
-      const pick = (navigator.languages || [navigator.language]).map((l) => l.slice(0, 2).toLowerCase()).find((l) => langs.includes(l));
-      location.replace('/' + (pick || def) + '/');
+      // Match exact regional variants first, then 2-letter prefix, falling back to English
+      var pick = (function (list) {
+        for (var i = 0; i < list.length; i++) {
+          var l = (list[i] || '').toLowerCase().replace(/_/g, '-');
+          if (l.indexOf('zh-tw') === 0 || l.indexOf('zh-hk') === 0 || l.indexOf('zh-mo') === 0 || l.indexOf('zh-hant') === 0) return 'zh-tw';
+          if (l === 'nb' || l === 'nn' || l.indexOf('nb-') === 0 || l.indexOf('nn-') === 0) return 'no';
+          if (l === 'fil' || l.indexOf('fil-') === 0) return 'tl';
+          if (l === 'iw' || l.indexOf('iw-') === 0) return 'he';
+          if (langs.indexOf(l) !== -1) return l;
+          var p = l.slice(0, 2);
+          if (langs.indexOf(p) !== -1) return p;
+        }
+        return def;
+      })(navigator.languages || [navigator.language]);
+      location.replace('/' + pick + '/');
     </script>
   </head>
   <body>

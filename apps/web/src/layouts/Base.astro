@@ -1,5 +1,5 @@
 ---
-import { HREFLANG, LANGS, DEFAULT_LANG, homePath, isRtl, t, type Lang } from '../i18n';
+import { HREFLANG, LANGS, LANG_META, DEFAULT_LANG, homePath, isRtl, t, type Lang } from '../i18n';
 import PwaHead from '../components/PwaHead.astro';
 import '../styles/global.css';
 
@@ -16,33 +16,7 @@ const ui = t(lang).ui;
 const abs = (l: Lang) => new URL(`/${l}/${rest}`, Astro.site).href;
 const ogImage = new URL('/og-cover.png', Astro.site).href;
 const cfToken = import.meta.env.PUBLIC_CF_ANALYTICS_TOKEN;
-const OG_LOCALE: Record<Lang, string> = {
-  en: 'en_US',
-  es: 'es_ES',
-  pt: 'pt_BR',
-  ru: 'ru_RU',
-  id: 'id_ID',
-  de: 'de_DE',
-  fr: 'fr_FR',
-  ja: 'ja_JP',
-  ko: 'ko_KR',
-  tr: 'tr_TR',
-  zh: 'zh_CN',
-  hi: 'hi_IN',
-  ar: 'ar_AR',
-  it: 'it_IT',
-  pl: 'pl_PL',
-  nl: 'nl_NL',
-  vi: 'vi_VN',
-  th: 'th_TH',
-  uk: 'uk_UA',
-  cs: 'cs_CZ',
-  sv: 'sv_SE',
-  ro: 'ro_RO',
-  el: 'el_GR',
-  hu: 'hu_HU',
-  ms: 'ms_MY',
-};
+const popularLangs = LANGS.filter((l) => LANG_META[l].popular);
 ---
 
 <!doctype html>
@@ -68,7 +42,7 @@ const OG_LOCALE: Record<Lang, string> = {
     <meta property="og:description" content={desc} />
     <meta property="og:url" content={abs(lang)} />
     <meta property="og:site_name" content={ui.siteName} />
-    <meta property="og:locale" content={OG_LOCALE[lang]} />
+    <meta property="og:locale" content={LANG_META[lang].ogLocale} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -94,17 +68,35 @@ const OG_LOCALE: Record<Lang, string> = {
             <span class="lang-caret" aria-hidden="true">▾</span>
           </summary>
           <div class="lang-panel">
-            <input type="search" class="lang-search" placeholder="Search…" autocomplete="off" aria-label={ui.language} />
+            <div class="lang-head">
+              <input type="search" class="lang-search" placeholder={`Search ${LANGS.length} languages…`} autocomplete="off" aria-label={ui.language} />
+              <div class="lang-suggested" hidden>
+                <a class="lang-suggested-link" href="#"></a>
+              </div>
+              <div class="lang-tabs" role="tablist" aria-label={ui.language}>
+                <button type="button" class="lang-tab active" data-region="all" aria-pressed="true">All ({LANGS.length})</button>
+                <button type="button" class="lang-tab" data-region="popular" aria-pressed="false">Popular</button>
+                <button type="button" class="lang-tab" data-region="europe" aria-pressed="false">Europe</button>
+                <button type="button" class="lang-tab" data-region="asia" aria-pressed="false">Asia</button>
+                <button type="button" class="lang-tab" data-region="mea" aria-pressed="false">Middle East &amp; Africa</button>
+              </div>
+            </div>
             <nav class="lang-menu" aria-label={ui.language}>
               {LANGS.map((l) => (
                 <a
                   href={`/${l}/${rest}`}
                   hreflang={HREFLANG[l]}
                   aria-current={l === lang ? 'page' : undefined}
-                  data-lang-label={`${l} ${HREFLANG[l].toLowerCase()} ${t(l).langName.toLowerCase()}`}
+                  data-lang={l}
+                  data-region={LANG_META[l].region}
+                  data-popular={LANG_META[l].popular ? '1' : undefined}
+                  data-lang-label={`${l} ${HREFLANG[l].toLowerCase()} ${t(l).langName.toLowerCase()} ${LANG_META[l].enName.toLowerCase()}`}
                 >
                   <span class="lang-code">{l.toUpperCase()}</span>
-                  <span class="lang-name">{t(l).langName}</span>
+                  <span class="lang-labels">
+                    <span class="lang-name" dir="auto">{t(l).langName}</span>
+                    <span class="lang-en">{LANG_META[l].enName}</span>
+                  </span>
                 </a>
               ))}
             </nav>
@@ -120,10 +112,16 @@ const OG_LOCALE: Record<Lang, string> = {
     <footer class="foot">
       <p>🔒 {ui.footer}</p>
       <p>
-        {LANGS.map((l) => <a href={`/${l}/${rest}`} hreflang={HREFLANG[l]}>{t(l).langName}</a>)}
+        {popularLangs.map((l) => <a href={`/${l}/${rest}`} hreflang={HREFLANG[l]}>{t(l).langName}</a>)}
       </p>
+      <details class="foot-langs">
+        <summary>All {LANGS.length} languages</summary>
+        <p>
+          {LANGS.map((l) => <a href={`/${l}/${rest}`} hreflang={HREFLANG[l]}>{t(l).langName}</a>)}
+        </p>
+      </details>
     </footer>
-    <script is:inline>
+    <script is:inline define:vars={{ curLang: lang, allLangs: LANGS }}>
       (function () {
         var btn = document.getElementById('theme-toggle');
         if (btn) {
@@ -146,19 +144,72 @@ const OG_LOCALE: Record<Lang, string> = {
         var picker = document.getElementById('lang-picker');
         if (picker) {
           var search = picker.querySelector('.lang-search');
+          var tabs = picker.querySelectorAll('.lang-tab');
           var links = picker.querySelectorAll('.lang-menu a');
           var empty = picker.querySelector('.lang-empty');
+          var sugWrap = picker.querySelector('.lang-suggested');
+          var sugLink = picker.querySelector('.lang-suggested-link');
+          var activeRegion = 'all';
+
           var filter = function () {
             var q = (search ? search.value : '').trim().toLowerCase();
             var shown = 0;
             links.forEach(function (a) {
-              var ok = !q || (a.dataset.langLabel || '').indexOf(q) !== -1;
+              var ok;
+              if (q) {
+                ok = (a.dataset.langLabel || '').indexOf(q) !== -1;
+              } else if (activeRegion === 'all') {
+                ok = true;
+              } else if (activeRegion === 'popular') {
+                ok = a.dataset.popular === '1';
+              } else {
+                ok = a.dataset.region === activeRegion;
+              }
               a.hidden = !ok;
               if (ok) shown++;
             });
             if (empty) empty.hidden = shown > 0;
           };
+
           if (search) search.addEventListener('input', filter);
+          tabs.forEach(function (tab) {
+            tab.addEventListener('click', function () {
+              activeRegion = tab.dataset.region || 'all';
+              tabs.forEach(function (t) {
+                var on = t === tab;
+                t.classList.toggle('active', on);
+                t.setAttribute('aria-pressed', String(on));
+              });
+              if (search && search.value) search.value = '';
+              filter();
+            });
+          });
+
+          if (sugWrap && sugLink) {
+            var list = navigator.languages || [navigator.language];
+            var detected = '';
+            for (var i = 0; i < list.length; i++) {
+              var l = (list[i] || '').toLowerCase().replace(/_/g, '-');
+              if (l.indexOf('zh-tw') === 0 || l.indexOf('zh-hk') === 0 || l.indexOf('zh-mo') === 0 || l.indexOf('zh-hant') === 0) { detected = 'zh-tw'; break; }
+              if (l === 'nb' || l === 'nn' || l.indexOf('nb-') === 0 || l.indexOf('nn-') === 0) { detected = 'no'; break; }
+              if (l === 'fil' || l.indexOf('fil-') === 0) { detected = 'tl'; break; }
+              if (l === 'iw' || l.indexOf('iw-') === 0) { detected = 'he'; break; }
+              if (allLangs.indexOf(l) !== -1) { detected = l; break; }
+              var p = l.slice(0, 2);
+              if (allLangs.indexOf(p) !== -1) { detected = p; break; }
+            }
+            if (detected && detected !== curLang) {
+              var target = picker.querySelector('.lang-menu a[data-lang="' + detected + '"]');
+              if (target) {
+                var nativeName = (target.querySelector('.lang-name') || {}).textContent || detected.toUpperCase();
+                var enName = (target.querySelector('.lang-en') || {}).textContent || '';
+                sugLink.setAttribute('href', target.getAttribute('href') || ('/' + detected + '/'));
+                sugLink.textContent = '🌐 ' + nativeName + (enName && enName !== nativeName ? ' (' + enName + ')' : '');
+                sugWrap.hidden = false;
+              }
+            }
+          }
+
           picker.addEventListener('toggle', function () {
             if (picker.open && search && matchMedia('(pointer: fine)').matches) search.focus();
           });
