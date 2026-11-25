@@ -16,7 +16,7 @@
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0f1115;
     --card: #171a21;
     --text: #e5e7eb;
@@ -32,6 +32,27 @@
     --focus: #1e40af;
   }
 }
+:root[data-theme='dark'] {
+  --bg: #0f1115;
+  --card: #171a21;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --line: #2a2f3a;
+  --accent: #3b82f6;
+  --accent-2: #60a5fa;
+  --accent-soft: #172036;
+  --err: #f87171;
+  --err-soft: #2d1515;
+  --ok: #4ade80;
+  --ok-soft: #11281b;
+  --focus: #1e40af;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -46,13 +67,25 @@ main { max-width: 860px; margin: 0 auto; padding: 8px 20px 48px; }
 main.center { text-align: center; padding-top: 15vh; }
 
 .top {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap;
   max-width: 860px; margin: 0 auto; padding: 14px 20px;
 }
-.logo { font-weight: 700; color: var(--text); font-size: 1.05rem; }
-.langs { display: flex; gap: 4px; }
-.langs a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; border-radius: 8px; color: var(--muted); font-size: .85rem; font-weight: 600; }
+.logo { font-weight: 700; color: var(--text); font-size: 1.05rem; white-space: nowrap; }
+.top-right { display: flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
+.langs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+.langs::-webkit-scrollbar { display: none; }
+.langs a {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  min-height: 44px; padding: 0 9px; border-radius: 8px; color: var(--muted); font-size: .82rem; font-weight: 600;
+}
 .langs a[aria-current='page'] { background: var(--accent-soft); color: var(--accent); }
+.theme-btn {
+  width: 44px; height: 44px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text);
+  cursor: pointer; font-size: 1.05rem;
+}
+.theme-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
 
 .hero { text-align: center; padding: 20px 0 8px; }
 .hero h1 { font-size: clamp(1.6rem, 4vw, 2.3rem); line-height: 1.2; margin: 0 0 10px; }
@@ -90,6 +123,10 @@ main.center { text-align: center; padding-top: 15vh; }
 .outs { display: grid; gap: 8px; width: 100%; }
 .outs .out { padding: 0; border: 0; }
 .files li.err { border-color: var(--err); color: var(--err); }
+.thumb {
+  width: 40px; height: 40px; flex: none; border-radius: 8px; object-fit: cover;
+  border: 1px solid var(--line); background: var(--bg);
+}
 .fname { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .fsize { color: var(--muted); font-size: .9rem; white-space: nowrap; }
 .note { margin: 0; color: var(--muted); font-size: .92rem; }
@@ -127,13 +164,15 @@ details p { color: var(--muted); margin: 8px 0 0; }
 .cat h3 { font-size: 1.05rem; margin: 22px 0 10px; }
 .cards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
 .cards a {
-  display: block; padding: 14px 16px; background: var(--card); border: 1px solid var(--line);
-  border-radius: 12px; color: var(--text); font-weight: 600;
+  display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; color: var(--text); font-weight: 600; height: 100%;
 }
 .cards a:hover { border-color: var(--accent); text-decoration: none; }
+.card-badge { font-size: .75rem; font-weight: 600; color: var(--muted); }
 
 .foot { max-width: 860px; margin: 0 auto; padding: 24px 20px 40px; color: var(--muted); font-size: .88rem; text-align: center; border-top: 1px solid var(--line); }
-.foot a { margin: 0 6px; color: var(--muted); }
+.foot p { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; margin: 8px 0; }
+.foot a { color: var(--muted); }
 
 /* compact drop bar once files are chosen */
 .drop.compact {

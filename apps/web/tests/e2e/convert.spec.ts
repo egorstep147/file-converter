@@ -143,9 +143,14 @@ test('voice message to MP3', async ({ page }) => {
 test('pages: SEO tags, hreflang, other languages render', async ({ page }) => {
   await page.goto('/ru/heic-to-jpg/');
   await expect(page.locator('h1')).toHaveText('Конвертировать HEIC в JPG');
-  await expect(page.locator('link[rel=alternate][hreflang]')).toHaveCount(6);
-  await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(2);
+  await expect(page.locator('link[rel=alternate][hreflang]')).toHaveCount(11);
+  await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(3);
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-cover\.png$/);
   await page.goto('/id/');
+  await expect(page.locator('.cards a')).toHaveCount(13);
+  await page.goto('/de/heic-to-jpg/');
+  await expect(page.locator('h1')).toHaveText('HEIC in JPG umwandeln');
+  await page.goto('/ja/');
   await expect(page.locator('.cards a')).toHaveCount(13);
 });
 

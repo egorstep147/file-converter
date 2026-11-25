@@ -14,6 +14,20 @@ interface Props {
 const { lang, title, desc, rest, jsonLd = [] } = Astro.props;
 const ui = t(lang).ui;
 const abs = (l: Lang) => new URL(`/${l}/${rest}`, Astro.site).href;
+const ogImage = new URL('/og-cover.png', Astro.site).href;
+const cfToken = import.meta.env.PUBLIC_CF_ANALYTICS_TOKEN;
+const OG_LOCALE: Record<Lang, string> = {
+  en: 'en_US',
+  es: 'es_ES',
+  pt: 'pt_BR',
+  ru: 'ru_RU',
+  id: 'id_ID',
+  de: 'de_DE',
+  fr: 'fr_FR',
+  ja: 'ja_JP',
+  ko: 'ko_KR',
+  tr: 'tr_TR',
+};
 ---
 
 <!doctype html>
@@ -21,6 +35,14 @@ const abs = (l: Lang) => new URL(`/${l}/${rest}`, Astro.site).href;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        } catch {}
+      })();
+    </script>
     <title>{title}</title>
     <meta name="description" content={desc} />
     <link rel="canonical" href={abs(lang)} />
@@ -31,19 +53,31 @@ const abs = (l: Lang) => new URL(`/${l}/${rest}`, Astro.site).href;
     <meta property="og:description" content={desc} />
     <meta property="og:url" content={abs(lang)} />
     <meta property="og:site_name" content={ui.siteName} />
+    <meta property="og:locale" content={OG_LOCALE[lang]} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={desc} />
+    <meta name="twitter:image" content={ogImage} />
     <meta name="theme-color" content="#2563eb" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <PwaHead />
     {jsonLd.map((j) => <script type="application/ld+json" set:html={JSON.stringify(j)} />)}
+    {cfToken && <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: cfToken })} />}
   </head>
   <body>
     <header class="top">
       <a class="logo" href={homePath(lang)}>⇄ {ui.siteName}</a>
-      <nav class="langs" aria-label={ui.language}>
-        {LANGS.map((l) => (
-          <a href={`/${l}/${rest}`} hreflang={HREFLANG[l]} aria-current={l === lang ? 'page' : undefined}>{l.toUpperCase()}</a>
-        ))}
-      </nav>
+      <div class="top-right">
+        <nav class="langs" aria-label={ui.language}>
+          {LANGS.map((l) => (
+            <a href={`/${l}/${rest}`} hreflang={HREFLANG[l]} aria-current={l === lang ? 'page' : undefined}>{l.toUpperCase()}</a>
+          ))}
+        </nav>
+        <button type="button" class="theme-btn" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">◐</button>
+      </div>
     </header>
     <main>
       <slot />
@@ -54,5 +88,25 @@ const abs = (l: Lang) => new URL(`/${l}/${rest}`, Astro.site).href;
         {LANGS.map((l) => <a href={`/${l}/${rest}`} hreflang={HREFLANG[l]}>{t(l).langName}</a>)}
       </p>
     </footer>
+    <script is:inline>
+      (function () {
+        var btn = document.getElementById('theme-toggle');
+        if (!btn) return;
+        var root = document.documentElement;
+        var sync = function () {
+          var cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          btn.textContent = cur === 'dark' ? '☀' : '☾';
+          btn.setAttribute('aria-pressed', String(cur === 'dark'));
+        };
+        sync();
+        btn.addEventListener('click', function () {
+          var cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          var next = cur === 'dark' ? 'light' : 'dark';
+          root.dataset.theme = next;
+          try { localStorage.setItem('theme', next); } catch {}
+          sync();
+        });
+      })();
+    </script>
   </body>
 </html>

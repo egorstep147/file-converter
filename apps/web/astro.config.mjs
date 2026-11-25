@@ -14,7 +14,7 @@ export default defineConfig({
     react(),
     sitemap({
       filter: (page) => !/\/(404|share)\/?$/.test(page) && new URL(page).pathname !== '/',
-      i18n: { defaultLocale: 'en', locales: { en: 'en', es: 'es', pt: 'pt', ru: 'ru', id: 'id' } },
+      i18n: { defaultLocale: 'en', locales: { en: 'en', es: 'es', pt: 'pt', ru: 'ru', id: 'id', de: 'de', fr: 'fr', ja: 'ja', ko: 'ko', tr: 'tr' } },
     }),
   ],
   vite: {

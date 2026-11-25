@@ -9,6 +9,21 @@ interface Props {
 const { lang, exclude } = Astro.props;
 const d = t(lang);
 const ICON = { image: '🖼️', pdf: '📄', audio: '🎙️' } as const;
+const BADGES: Record<ToolSlug, string> = {
+  'heic-to-jpg': 'HEIC → JPG',
+  'compress-image': 'JPG · PNG · WebP',
+  'resize-image': 'px / %',
+  'png-to-jpg': 'PNG → JPG',
+  'webp-to-jpg': 'WebP → JPG',
+  'jpg-to-png': 'JPG → PNG',
+  'jpg-to-webp': 'JPG → WebP',
+  'jpg-to-pdf': 'IMG → PDF',
+  'merge-pdf': 'PDF + PDF',
+  'split-pdf': 'PDF ✂',
+  'pdf-to-jpg': 'PDF → JPG',
+  'compress-pdf': 'PDF ↓ MB',
+  'ogg-to-mp3': 'OGG → MP3',
+};
 ---
 
 {CATEGORIES.map((cat) => (
@@ -17,7 +32,10 @@ const ICON = { image: '🖼️', pdf: '📄', audio: '🎙️' } as const;
     <ul class="cards">
       {TOOLS.filter((x) => x.category === cat && x.slug !== exclude).map((x) => (
         <li>
-          <a href={toolPath(lang, x.slug)}>{d.tools[x.slug as ToolSlug].name}</a>
+          <a href={toolPath(lang, x.slug)}>
+            <span class="card-name">{d.tools[x.slug as ToolSlug].name}</span>
+            <span class="card-badge" aria-hidden="true">{BADGES[x.slug as ToolSlug]}</span>
+          </a>
         </li>
       ))}
     </ul>

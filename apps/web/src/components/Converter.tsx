@@ -20,6 +20,11 @@ const ORDERED: ToolSlug[] = ['merge-pdf', 'jpg-to-pdf'];
 const READY: FileState = { status: 'ready', progress: 0 };
 const pctLabel = (n: number) => (n > 0 ? `+${n}%` : `−${Math.abs(n)}%`);
 
+function isPreviewableImage(f: { name: string; type: string }): boolean {
+  if (['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'].includes(f.type)) return true;
+  return /\.(jpe?g|png|webp|gif|avif)$/i.test(f.name);
+}
+
 function errorText(r: Result, ui: UI): string {
   if (r.error === 'webp') return ui.errorWebp;
   if (r.error === 'ranges') return ui.rangesError;
@@ -29,11 +34,14 @@ function errorText(r: Result, ui: UI): string {
 export default function Converter({ slug, accept, multiple, ui }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [states, setStates] = useState<FileState[]>([]);
+  const [thumbUrls, setThumbUrls] = useState<string[]>([]);
   const [opts, setOpts] = useState<Options>(DEFAULT_OPTIONS);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<Result[] | null>(null);
   const [over, setOver] = useState(false);
+  const filesRef = useRef<File[]>([]);
+  filesRef.current = files;
   const input = useRef<HTMLInputElement>(null);
   const inputId = useId();
   const combines = COMBINES.includes(slug);
@@ -42,6 +50,7 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
 
   /** Any change of the file list invalidates statuses and results. */
   const replaceFiles = (next: File[]) => {
+    filesRef.current = next;
     setFiles(next);
     setStates(next.map(() => READY));
     setResults(null);
@@ -50,13 +59,19 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
   const add = (list: FileList | File[] | null) => {
     if (!list?.length) return;
     const picked = Array.from(list);
-    setFiles((prev) => {
-      const next = multiple ? [...prev, ...picked] : picked.slice(0, 1);
-      setStates(next.map(() => READY));
-      return next;
-    });
-    setResults(null);
+    const next = multiple ? [...filesRef.current, ...picked] : picked.slice(0, 1);
+    replaceFiles(next);
   };
+
+  useEffect(() => {
+    const urls = files.map((f) => (isPreviewableImage(f) ? URL.createObjectURL(f) : ''));
+    setThumbUrls(urls);
+    return () => {
+      urls.forEach((u) => {
+        if (u) URL.revokeObjectURL(u);
+      });
+    };
+  }, [files]);
 
   useEffect(() => {
     // on a slow connection the user may pick files before React hydrates: pick them up
@@ -158,11 +173,13 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
               const st = states[i] ?? READY;
               const r = combines ? undefined : results?.[i];
               const reason = st.status === 'error' && r?.error ? errorText(r, ui) : '';
+              const thumb = thumbUrls[i];
               return (
                 <li key={`${f.name}-${i}`} className={st.status === 'error' ? 'err' : ''} data-status={st.status}>
+                  {thumb && <img className="thumb" src={thumb} alt="" />}
                   <span className="fname">
                     {f.name}
-                    <small className={`meta${reason ? ' bad' : ''}`}>
+                    <small className={`meta${reason ? ' bad' : ''}`} title={reason && r?.detail ? r.detail : undefined}>
                       {formatBytes(f.size)}
                       {reason ? ` · ${reason}` : ''}
                     </small>
@@ -311,6 +328,7 @@ function Results({ results, outputs, ui, combines, onJpg }: { results: Result[];
                   const change = r.outputs.length === 1 && r.note !== 'notSmaller' ? sizeChange(r.inputSize, o.blob.size) : null;
                   return (
                     <div key={j} className="out">
+                      {o.blob.type.startsWith('image/') && <img className="thumb" src={urls.get(o)} alt="" />}
                       <span className="fname">
                         {o.name}
                         <small className="meta">

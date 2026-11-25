@@ -12,6 +12,7 @@ const abs = (p: string) => new URL(p, Astro.site).href;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{t(DEFAULT_LANG).ui.siteName}</title>
+    <meta name="description" content={t(DEFAULT_LANG).ui.homeDesc} />
     <link rel="canonical" href={abs(`/${DEFAULT_LANG}/`)} />
     {LANGS.map((l) => <link rel="alternate" hreflang={HREFLANG[l]} href={abs(`/${l}/`)} />)}
     <link rel="alternate" hreflang="x-default" href={abs(`/${DEFAULT_LANG}/`)} />
