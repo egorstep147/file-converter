@@ -26,5 +26,29 @@ const jsonLd = [
     <p class="lead">{ui.homeIntro}</p>
     <p class="privacy">🔒 {ui.privacy}</p>
   </section>
-  <ToolCards lang={lang} />
+  <div class="search-wrap">
+    <input type="search" id="tool-search" class="tool-search" placeholder={ui.searchTools} autocomplete="off" aria-label={ui.searchTools} />
+  </div>
+  <div id="tools-grid">
+    <ToolCards lang={lang} />
+  </div>
+  <script is:inline>
+    (function () {
+      var input = document.getElementById('tool-search');
+      var grid = document.getElementById('tools-grid');
+      if (!input || !grid) return;
+      input.addEventListener('input', function () {
+        var q = input.value.trim().toLowerCase();
+        grid.querySelectorAll('.cat').forEach(function (cat) {
+          var vis = 0;
+          cat.querySelectorAll('li[data-search]').forEach(function (li) {
+            var ok = !q || (li.dataset.search || '').indexOf(q) !== -1;
+            li.hidden = !ok;
+            if (ok) vis++;
+          });
+          cat.hidden = vis === 0;
+        });
+      });
+    })();
+  </script>
 </Base>

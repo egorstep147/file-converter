@@ -154,11 +154,11 @@ test('pages: SEO tags, hreflang, other languages render', async ({ page }) => {
   await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(3);
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-cover\.png$/);
   await page.goto('/id/');
-  await expect(page.locator('.cards a')).toHaveCount(13);
+  await expect(page.locator('.cards a')).toHaveCount(20);
   await page.goto('/zh/heic-to-jpg/');
   await expect(page.locator('h1')).toHaveText('将 HEIC 转换为 JPG');
   await page.goto('/hi/');
-  await expect(page.locator('.cards a')).toHaveCount(13);
+  await expect(page.locator('.cards a')).toHaveCount(20);
   await page.goto('/ar/');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 });
@@ -201,4 +201,89 @@ test('Telegram Mini App: results go to the chat through the bot', async ({ page 
 test('outside Telegram there is no "Send to chat"', async ({ page }) => {
   await convert(page, '/en/compress-image/', ['photo.png']);
   await expect(page.getByTestId('telegram')).toHaveCount(0);
+  await expect(page.getByTestId('before-after')).toBeVisible();
+});
+
+test('home search filters tool cards', async ({ page }) => {
+  await page.goto('/en/');
+  await expect(page.locator('.cards a')).toHaveCount(20);
+  await page.locator('#tool-search').fill('zip');
+  await expect(page.locator('.cards li:visible')).toHaveCount(1);
+  await expect(page.locator('.cards li:visible a')).toContainText('ZIP archive & extract');
+});
+
+test('rotate image swaps dimensions', async ({ page }) => {
+  await convert(page, '/en/rotate-image/', ['photo.jpg']);
+  const dims = await page.getByTestId('results').locator('a[download]').first().evaluate(async (a: HTMLAnchorElement) => {
+    const bmp = await createImageBitmap(await (await fetch(a.href)).blob());
+    return [bmp.width, bmp.height];
+  });
+  expect(dims[1]).toBeGreaterThan(dims[0]);
+});
+
+test('strip EXIF metadata produces clean JPG', async ({ page }) => {
+  const [out] = await convert(page, '/en/strip-exif/', ['photo.jpg']);
+  expect(out.name).toBe('photo-clean.jpg');
+  expect(out.head.startsWith(JPG)).toBe(true);
+});
+
+test('any-to-jpg converts SVG to JPG', async ({ page }) => {
+  await page.goto('/en/any-to-jpg/');
+  await page.locator('astro-island:not([ssr])').waitFor({ state: 'attached' });
+  const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="#2563eb"/></svg>');
+  await page.getByTestId('file-input').setInputFiles({ name: 'icon.svg', mimeType: 'image/svg+xml', buffer: svg });
+  await page.locator('.actions .btn.primary').click();
+  await expect(page.getByTestId('results')).toBeVisible();
+  const out = await page.getByTestId('results').locator('a[download]').first().evaluate(async (a: HTMLAnchorElement) => {
+    const buf = new Uint8Array(await (await fetch(a.href)).arrayBuffer());
+    return { name: a.download, head: Array.from(buf.slice(0, 3), (b) => b.toString(16).padStart(2, '0')).join('') };
+  });
+  expect(out.name).toBe('icon.jpg');
+  expect(out.head).toBe(JPG);
+});
+
+test('rotate PDF and PDF to PNG', async ({ page }) => {
+  const [rot] = await convert(page, '/en/rotate-pdf/', ['text.pdf']);
+  expect(rot.name).toBe('text-rotated.pdf');
+  expect(rot.head).toBe(PDF);
+
+  const pngs = await convert(page, '/en/pdf-to-png/', ['text.pdf']);
+  expect(pngs).toHaveLength(3);
+  expect(pngs.every((o) => o.head.startsWith(PNG))).toBe(true);
+});
+
+test('zip-files creates and extracts ZIP archive', async ({ page }) => {
+  await convert(page, '/en/zip-files/', ['photo.png', 'text.pdf']);
+  const zipBytes = await page.getByTestId('results').locator('a[download]').first().evaluate(async (a: HTMLAnchorElement) => {
+    const buf = new Uint8Array(await (await fetch(a.href)).arrayBuffer());
+    return Array.from(buf);
+  });
+  expect(zipBytes.slice(0, 4)).toEqual([0x50, 0x4b, 0x03, 0x04]);
+
+  await page.getByRole('button', { name: 'Start over' }).click();
+  await page.getByTestId('file-input').setInputFiles({ name: 'bundle.zip', mimeType: 'application/zip', buffer: Buffer.from(zipBytes) });
+  await page.locator('.options select').selectOption('extract');
+  await page.locator('.actions .btn.primary').click();
+  await expect(page.getByTestId('results').locator('a[download]')).toHaveCount(2);
+});
+
+test('audio-to-mp3 converts WAV to MP3', async ({ page }) => {
+  await page.goto('/en/audio-to-mp3/');
+  await page.locator('astro-island:not([ssr])').waitFor({ state: 'attached' });
+  const sr = 44100, len = 22050, wav = Buffer.alloc(44 + len * 2);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + len * 2, 4); wav.write('WAVEfmt ', 8);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sr, 24); wav.writeUInt32LE(sr * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+  wav.write('data', 36); wav.writeUInt32LE(len * 2, 40);
+  for (let i = 0; i < len; i++) wav.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 440 * i) / sr) * 10000), 44 + i * 2);
+
+  await page.getByTestId('file-input').setInputFiles({ name: 'tone.wav', mimeType: 'audio/wav', buffer: wav });
+  await page.locator('.actions .btn.primary').click();
+  await expect(page.getByTestId('results')).toBeVisible({ timeout: 30_000 });
+  const out = await page.getByTestId('results').locator('a[download]').first().evaluate(async (a: HTMLAnchorElement) => {
+    const buf = new Uint8Array(await (await fetch(a.href)).arrayBuffer());
+    return { name: a.download, head: Array.from(buf.slice(0, 2), (b) => b.toString(16).padStart(2, '0')).join('') };
+  });
+  expect(out.name).toBe('tone.mp3');
+  expect(out.head.startsWith('fff')).toBe(true);
 });

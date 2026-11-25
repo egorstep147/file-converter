@@ -127,6 +127,13 @@ main.center { text-align: center; padding-top: 10vh; }
 .lead { color: var(--muted); font-size: 1.08rem; max-width: 640px; margin: 0 auto 8px; }
 .privacy { color: var(--muted); font-size: .92rem; }
 
+.search-wrap { margin: 16px 0 6px; }
+.tool-search {
+  width: 100%; font: inherit; padding: 12px 16px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text);
+}
+.cat[hidden], .cards li[hidden] { display: none; }
+
 .converter { margin: 24px 0 32px; }
 .drop {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -136,7 +143,13 @@ main.center { text-align: center; padding-top: 10vh; }
 .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
 .drop-title { font-size: 1.2rem; font-weight: 600; }
 .drop-or { color: var(--muted); font-size: .9rem; }
-.drop-privacy { color: var(--muted); font-size: .85rem; margin-top: 6px; }
+.drop-paste { color: var(--muted); font-size: .82rem; }
+.drop-privacy { color: var(--muted); font-size: .85rem; margin-top: 4px; }
+.page-drop {
+  position: fixed; inset: 14px; z-index: 60; border: 3px dashed var(--accent); border-radius: 20px;
+  background: rgba(37, 99, 235, .14); backdrop-filter: blur(4px);
+  display: grid; place-items: center; font-size: 1.4rem; font-weight: 700; color: var(--accent); pointer-events: none;
+}
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -250,3 +263,12 @@ progress.mini { width: 120px; margin: 0; }
 .tg-status { color: var(--muted); font-size: .9rem; }
 .tg-status.done { color: var(--ok); font-weight: 600; }
 .tg-status.error { color: var(--err); }
+
+/* Before / After interactive image comparison */
+.ba { margin: 14px 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.ba-stage { position: relative; width: 100%; max-height: 340px; overflow: hidden; border-radius: 10px; background: var(--bg); }
+.ba-img { display: block; width: 100%; max-height: 340px; object-fit: contain; user-select: none; }
+.ba-top { position: absolute; inset: 0; height: 100%; }
+.ba-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 8px rgba(0,0,0,.5); pointer-events: none; }
+.ba-slider { width: 100%; margin: 10px 0 4px; accent-color: var(--accent); }
+.ba-labels { display: flex; justify-content: space-between; font-size: .84rem; color: var(--muted); font-weight: 600; }

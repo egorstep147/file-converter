@@ -108,6 +108,9 @@ async function renderPages(file: Blob, scale: number, each: (c: HTMLCanvasElemen
 const canvasToJpeg = (c: HTMLCanvasElement, q: number) =>
   new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('encode failed'))), 'image/jpeg', q));
 
+const canvasToPng = (c: HTMLCanvasElement) =>
+  new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('encode failed'))), 'image/png'));
+
 export async function pdfToJpg(file: File, dpi: number, onProgress?: (d: number, t: number) => void): Promise<OutputFile[]> {
   const base = file.name.replace(/\.pdf$/i, '');
   const out: OutputFile[] = [];
@@ -115,6 +118,25 @@ export async function pdfToJpg(file: File, dpi: number, onProgress?: (d: number,
     out.push({ name: `${base}-${i}.jpg`, blob: await canvasToJpeg(c, 0.9) });
   }, onProgress);
   return out;
+}
+
+export async function pdfToPng(file: File, dpi: number, onProgress?: (d: number, t: number) => void): Promise<OutputFile[]> {
+  const base = file.name.replace(/\.pdf$/i, '');
+  const out: OutputFile[] = [];
+  await renderPages(file, dpi / 72, async (c, i) => {
+    out.push({ name: `${base}-${i}.png`, blob: await canvasToPng(c) });
+  }, onProgress);
+  return out;
+}
+
+export async function rotatePdf(file: File, angle: 90 | 180 | 270): Promise<OutputFile> {
+  const { PDFDocument, degrees } = await lib();
+  const doc = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  for (const page of doc.getPages()) {
+    const cur = page.getRotation().angle;
+    page.setRotation(degrees((cur + angle) % 360));
+  }
+  return { name: renameTo(file.name, 'application/pdf', '-rotated'), blob: pdfBlob(await doc.save()) };
 }
 
 export const COMPRESS_LEVELS = {

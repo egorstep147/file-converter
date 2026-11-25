@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 import { floatTo16, decodeOggOpus, encodeMp3 } from '../../src/lib/audio';
-import { fmt, formatBytes, parseRanges, renameTo, uniqueNames, zipFiles } from '../../src/lib/files';
+import { fmt, formatBytes, parseRanges, renameTo, uniqueNames, unzipFile, zipFiles } from '../../src/lib/files';
 import { fitSize, looksLikeHeic } from '../../src/lib/image';
-import { imagesToPdf, mergePdfs, pageCount, splitPdf } from '../../src/lib/pdf';
+import { imagesToPdf, mergePdfs, pageCount, rotatePdf, splitPdf } from '../../src/lib/pdf';
 import { autoType, DEFAULT_OPTIONS, runTool, sizeChange, type FileState } from '../../src/lib/run';
 import { DICTS } from '../../src/i18n';
 import { TOOLS } from '../../src/tools';
@@ -36,10 +36,12 @@ describe('files', () => {
     for (const bad of ['', '0', '6', '4-2', 'abc', '1-x']) expect(() => parseRanges(bad, 5)).toThrow();
   });
 
-  it('zips outputs', async () => {
+  it('zips and unzips outputs', async () => {
     const zip = await zipFiles([{ name: 'a.txt', blob: new Blob(['1']) }, { name: 'a.txt', blob: new Blob(['2']) }]);
     const { unzipSync } = await import('fflate');
     expect(Object.keys(unzipSync(new Uint8Array(await zip.arrayBuffer())))).toEqual(['a.txt', 'a (2).txt']);
+    const extracted = await unzipFile(zip);
+    expect(extracted.map((x) => x.name)).toEqual(['a.txt', 'a (2).txt']);
   });
 });
 
@@ -87,6 +89,13 @@ describe('pdf', () => {
     expect(doc.getPageCount()).toBe(2);
     // landscape photo -> landscape A4
     expect(Math.round(doc.getPage(0).getWidth())).toBe(842);
+  });
+
+  it('rotates PDF pages', async () => {
+    const rot = await rotatePdf(fx('text.pdf'), 90);
+    expect(rot.name).toBe('text-rotated.pdf');
+    const doc = await PDFDocument.load(await rot.blob.arrayBuffer());
+    expect(doc.getPage(0).getRotation().angle).toBe(90);
   });
 });
 
@@ -160,9 +169,10 @@ describe('share target: tools for received files', async () => {
   const { toolsForFile, toolsForFiles } = await import('../../src/lib/shared');
   it('suggests tools by type or extension', () => {
     expect(toolsForFile({ name: 'IMG_1.HEIC', type: '' })[0]).toBe('heic-to-jpg');
-    expect(toolsForFile({ name: 'voice.ogg', type: 'audio/ogg' })).toEqual(['ogg-to-mp3']);
+    expect(toolsForFile({ name: 'voice.ogg', type: 'audio/ogg' })).toEqual(['ogg-to-mp3', 'audio-to-mp3']);
     expect(toolsForFile({ name: 'a.pdf', type: 'application/pdf' })[0]).toBe('compress-pdf');
-    expect(toolsForFile({ name: 'x.zip', type: 'application/zip' })).toEqual([]);
+    expect(toolsForFile({ name: 'x.zip', type: 'application/zip' })).toEqual(['zip-files']);
+    expect(toolsForFile({ name: 'x.bin', type: 'application/octet-stream' })).toEqual([]);
   });
   it('puts tools that fit every file first and merge only for 2+ PDFs', () => {
     expect(toolsForFiles([{ name: 'a.pdf', type: 'application/pdf' }])).not.toContain('merge-pdf');

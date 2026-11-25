@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import type { Dict } from '../i18n';
 import { fmt, formatBytes, zipFiles, type OutputFile } from '../lib/files';
+import type { ImageMime, RotateOp } from '../lib/image';
 import { isNativeApp, shareFiles } from '../lib/native';
 import { takeShared } from '../lib/shared';
 import { sendToChat, telegramInitData } from '../lib/telegram';
@@ -17,12 +18,13 @@ interface Props {
 }
 
 const ORDERED: ToolSlug[] = ['merge-pdf', 'jpg-to-pdf'];
+const COMPARE_SLUGS: ToolSlug[] = ['compress-image', 'any-to-jpg', 'strip-exif', 'png-to-jpg', 'webp-to-jpg', 'jpg-to-png', 'jpg-to-webp'];
 const READY: FileState = { status: 'ready', progress: 0 };
 const pctLabel = (n: number) => (n > 0 ? `+${n}%` : `−${Math.abs(n)}%`);
 
 function isPreviewableImage(f: { name: string; type: string }): boolean {
-  if (['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'].includes(f.type)) return true;
-  return /\.(jpe?g|png|webp|gif|avif)$/i.test(f.name);
+  if (['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'image/bmp', 'image/svg+xml'].includes(f.type)) return true;
+  return /\.(jpe?g|png|webp|gif|avif|bmp|svg)$/i.test(f.name);
 }
 
 function errorText(r: Result, ui: UI): string {
@@ -40,11 +42,12 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<Result[] | null>(null);
   const [over, setOver] = useState(false);
+  const [pageDrag, setPageDrag] = useState(false);
   const filesRef = useRef<File[]>([]);
   filesRef.current = files;
   const input = useRef<HTMLInputElement>(null);
   const inputId = useId();
-  const combines = COMBINES.includes(slug);
+  const combines = COMBINES.includes(slug) || (slug === 'zip-files' && opts.zipMode === 'create');
 
   const set = <K extends keyof Options>(k: K, v: Options[K]) => setOpts((o) => ({ ...o, [k]: v }));
 
@@ -78,16 +81,71 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
     if (input.current?.files?.length) add(input.current.files);
     // Android "Share → IslePlace" → /share/ → this tool with ?shared=1
     if (new URLSearchParams(location.search).has('shared')) {
-      takeShared().then((files) => {
-        if (files.length) add(files);
+      takeShared().then((shared) => {
+        if (shared.length) add(shared);
         history.replaceState(null, '', location.pathname);
       });
     }
   }, []);
 
+  // Global Ctrl+V paste and full-page drag-and-drop
+  useEffect(() => {
+    let depth = 0;
+    const onPaste = (e: ClipboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      const pasted = e.clipboardData?.files?.length
+        ? Array.from(e.clipboardData.files)
+        : Array.from(e.clipboardData?.items ?? [])
+            .filter((it) => it.kind === 'file')
+            .map((it) => it.getAsFile())
+            .filter((f): f is File => !!f);
+      if (pasted.length) {
+        e.preventDefault();
+        add(pasted);
+      }
+    };
+    const hasFiles = (e: globalThis.DragEvent) => e.dataTransfer?.types?.includes('Files') ?? false;
+    const onDragEnter = (e: globalThis.DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth++;
+      setPageDrag(true);
+    };
+    const onDragOver = (e: globalThis.DragEvent) => {
+      if (hasFiles(e)) e.preventDefault();
+    };
+    const onDragLeave = (e: globalThis.DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setPageDrag(false);
+    };
+    const onWindowDrop = (e: globalThis.DragEvent) => {
+      depth = 0;
+      setPageDrag(false);
+      if (!e.dataTransfer?.files?.length) return;
+      e.preventDefault();
+      add(e.dataTransfer.files);
+    };
+    window.addEventListener('paste', onPaste);
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onWindowDrop);
+    return () => {
+      window.removeEventListener('paste', onPaste);
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onWindowDrop);
+    };
+  }, [multiple]);
+
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setOver(false);
+    setPageDrag(false);
     add(e.dataTransfer.files);
   };
   const dragProps = {
@@ -136,9 +194,11 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
   const outputs = useMemo(() => results?.flatMap((r) => r.outputs) ?? [], [results]);
   const doneCount = states.filter((s) => s.status === 'done' || s.status === 'error').length;
   const canRun = files.length > 0 && !busy && !(slug === 'merge-pdf' && files.length < 2);
+  const compareInputUrl = COMPARE_SLUGS.includes(slug) && results?.length === 1 && !results[0].error && results[0].outputs.length === 1 ? thumbUrls[0] : '';
 
   return (
     <div className="converter">
+      {pageDrag && <div className="page-drop" aria-hidden="true">{ui.dropAnywhere}</div>}
       <input
         ref={input}
         id={inputId}
@@ -158,6 +218,7 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
           <span className="drop-title">{multiple ? ui.drop : ui.dropOne}</span>
           <span className="drop-or">{ui.or}</span>
           <span className="btn">{multiple ? ui.choose : ui.chooseOne}</span>
+          <span className="drop-paste">{ui.pasteHint}</span>
           <span className="drop-privacy">🔒 {ui.privacy}</span>
         </label>
       ) : (
@@ -224,12 +285,30 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
         </>
       )}
 
-      {results && <Results results={results} outputs={outputs} ui={ui} combines={combines} onJpg={() => run({ ...opts, fallbackJpeg: true })} />}
+      {results && <Results results={results} outputs={outputs} ui={ui} combines={combines} compareBeforeUrl={compareInputUrl} onJpg={() => run({ ...opts, fallbackJpeg: true })} />}
     </div>
   );
 }
 
-function Results({ results, outputs, ui, combines, onJpg }: { results: Result[]; outputs: OutputFile[]; ui: UI; combines: boolean; onJpg: () => void }) {
+function BeforeAfter({ beforeUrl, afterUrl, beforeSize, afterSize, ui }: { beforeUrl: string; afterUrl: string; beforeSize: number; afterSize: number; ui: UI }) {
+  const [pos, setPos] = useState(50);
+  return (
+    <div className="ba" data-testid="before-after">
+      <div className="ba-stage">
+        <img src={afterUrl} alt={ui.after} className="ba-img" />
+        <img src={beforeUrl} alt={ui.before} className="ba-img ba-top" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }} />
+        <div className="ba-line" style={{ left: `${pos}%` }} aria-hidden="true" />
+      </div>
+      <input type="range" className="ba-slider" min={0} max={100} value={pos} onChange={(e) => setPos(Number(e.target.value))} aria-label={`${ui.before} / ${ui.after}`} />
+      <div className="ba-labels">
+        <span>{ui.before}: {formatBytes(beforeSize)}</span>
+        <span>{ui.after}: {formatBytes(afterSize)}</span>
+      </div>
+    </div>
+  );
+}
+
+function Results({ results, outputs, ui, combines, compareBeforeUrl, onJpg }: { results: Result[]; outputs: OutputFile[]; ui: UI; combines: boolean; compareBeforeUrl: string; onJpg: () => void }) {
   const urls = useMemo(() => new Map(outputs.map((o) => [o, URL.createObjectURL(o.blob)])), [outputs]);
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
   const [zipping, setZipping] = useState(false);
@@ -241,6 +320,8 @@ function Results({ results, outputs, ui, combines, onJpg }: { results: Result[];
   const totalIn = ok.reduce((n, r) => n + r.inputSize, 0);
   const totalOut = ok.reduce((n, r) => n + r.outputs.reduce((m, o) => m + o.blob.size, 0), 0);
   const totalChange = comparable ? sizeChange(totalIn, totalOut) : null;
+  const singleOut = compareBeforeUrl && ok.length === 1 && ok[0].outputs[0]?.blob.type.startsWith('image/') ? ok[0].outputs[0] : null;
+  const singleOutUrl = singleOut ? urls.get(singleOut) : undefined;
 
   const native = useMemo(isNativeApp, []);
   // Telegram Mini App: downloads often don't work in its WebView → send results to the chat via the bot
@@ -294,6 +375,10 @@ function Results({ results, outputs, ui, combines, onJpg }: { results: Result[];
           <strong>{ui.errorWebp}</strong>
           <button type="button" className="btn" onClick={onJpg}>{ui.saveAsJpg}</button>
         </div>
+      )}
+
+      {singleOut && singleOutUrl && (
+        <BeforeAfter beforeUrl={compareBeforeUrl} afterUrl={singleOutUrl} beforeSize={ok[0].inputSize} afterSize={singleOut.blob.size} ui={ui} />
       )}
 
       {tg && outputs.length > 0 && (
@@ -360,6 +445,37 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function ToolOptions({ slug, o, set, ui }: { slug: ToolSlug; o: Options; set: <K extends keyof Options>(k: K, v: Options[K]) => void; ui: UI }) {
   switch (slug) {
+    case 'any-to-jpg':
+      return (
+        <div className="options">
+          <Field label={ui.format}>
+            <select value={o.outFormat} onChange={(e) => set('outFormat', e.target.value as ImageMime)}>
+              <option value="image/jpeg">JPG</option>
+              <option value="image/png">PNG</option>
+              <option value="image/webp">WebP</option>
+            </select>
+          </Field>
+          {o.outFormat !== 'image/png' && (
+            <Field label={`${ui.quality}: ${o.quality}`}>
+              <input type="range" min={10} max={95} step={5} value={o.quality} onChange={(e) => set('quality', Number(e.target.value))} />
+            </Field>
+          )}
+        </div>
+      );
+    case 'rotate-image':
+      return (
+        <div className="options">
+          <Field label={ui.rotateAngle}>
+            <select value={o.rotateOp} onChange={(e) => set('rotateOp', e.target.value as RotateOp)}>
+              <option value="90">{ui.rotate90}</option>
+              <option value="180">{ui.rotate180}</option>
+              <option value="270">{ui.rotate270}</option>
+              <option value="flip-h">{ui.flipH}</option>
+              <option value="flip-v">{ui.flipV}</option>
+            </select>
+          </Field>
+        </div>
+      );
     case 'compress-image':
       return (
         <div className="options">
@@ -431,7 +547,20 @@ function ToolOptions({ slug, o, set, ui }: { slug: ToolSlug; o: Options; set: <K
           )}
         </div>
       );
+    case 'rotate-pdf':
+      return (
+        <div className="options">
+          <Field label={ui.rotateAngle}>
+            <select value={o.pdfAngle} onChange={(e) => set('pdfAngle', Number(e.target.value) as 90 | 180 | 270)}>
+              <option value={90}>{ui.rotate90}</option>
+              <option value={180}>{ui.rotate180}</option>
+              <option value={270}>{ui.rotate270}</option>
+            </select>
+          </Field>
+        </div>
+      );
     case 'pdf-to-jpg':
+    case 'pdf-to-png':
       return (
         <div className="options">
           <Field label={ui.dpi}>
@@ -457,6 +586,7 @@ function ToolOptions({ slug, o, set, ui }: { slug: ToolSlug; o: Options; set: <K
         </div>
       );
     case 'ogg-to-mp3':
+    case 'audio-to-mp3':
       return (
         <div className="options">
           <Field label={ui.bitrate}>
@@ -464,6 +594,17 @@ function ToolOptions({ slug, o, set, ui }: { slug: ToolSlug; o: Options; set: <K
               <option value={64}>64 kbps</option>
               <option value={128}>128 kbps</option>
               <option value={192}>192 kbps</option>
+            </select>
+          </Field>
+        </div>
+      );
+    case 'zip-files':
+      return (
+        <div className="options">
+          <Field label={ui.zipMode}>
+            <select value={o.zipMode} onChange={(e) => set('zipMode', e.target.value as 'create' | 'extract')}>
+              <option value="create">{ui.zipCreate}</option>
+              <option value="extract">{ui.zipExtract}</option>
             </select>
           </Field>
         </div>

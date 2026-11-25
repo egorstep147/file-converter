@@ -54,3 +54,21 @@ export async function oggToMp3(file: File, kbps: number, onProgress?: (d: number
   const mp3 = await encodeMp3(channels, sampleRate, kbps, onProgress);
   return { name: renameTo(file.name, 'audio/mpeg'), blob: new Blob([mp3 as BlobPart], { type: 'audio/mpeg' }) };
 }
+
+/** General audio (WAV, M4A, WebM, FLAC, AAC, MP3, OGG) -> MP3 via AudioContext or OggOpus WASM. */
+export async function audioToMp3(file: File, kbps: number, onProgress?: (d: number, t: number) => void): Promise<OutputFile> {
+  if (file.type.includes('ogg') || file.type.includes('opus') || /\.(ogg|oga|opus)$/i.test(file.name)) {
+    return oggToMp3(file, kbps, onProgress);
+  }
+  const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const ctx = new AC();
+  try {
+    const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+    const channels: Float32Array[] = [];
+    for (let c = 0; c < Math.min(2, buf.numberOfChannels); c++) channels.push(buf.getChannelData(c));
+    const mp3 = await encodeMp3(channels, buf.sampleRate, kbps, onProgress);
+    return { name: renameTo(file.name, 'audio/mpeg'), blob: new Blob([mp3 as BlobPart], { type: 'audio/mpeg' }) };
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}

@@ -1,6 +1,6 @@
 /** Tool registry: one entry = one page per language. Add a tool here + texts in src/i18n/*.ts. */
 
-export type Category = 'image' | 'pdf' | 'audio';
+export type Category = 'image' | 'pdf' | 'audio' | 'archive';
 
 export interface Tool {
   slug: string;
@@ -11,6 +11,7 @@ export interface Tool {
 }
 
 const IMG = 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.jpg,.jpeg,.png,.webp';
+const ANY_IMG = `${IMG},image/avif,image/bmp,image/gif,image/svg+xml,.avif,.bmp,.gif,.svg`;
 
 export const TOOLS = [
   { slug: 'heic-to-jpg', category: 'image', accept: 'image/heic,image/heif,.heic,.heif', multiple: true },
@@ -20,17 +21,24 @@ export const TOOLS = [
   { slug: 'webp-to-jpg', category: 'image', accept: 'image/webp,.webp', multiple: true },
   { slug: 'jpg-to-png', category: 'image', accept: 'image/jpeg,.jpg,.jpeg', multiple: true },
   { slug: 'jpg-to-webp', category: 'image', accept: 'image/jpeg,image/png,.jpg,.jpeg,.png', multiple: true },
+  { slug: 'any-to-jpg', category: 'image', accept: ANY_IMG, multiple: true },
+  { slug: 'rotate-image', category: 'image', accept: ANY_IMG, multiple: true },
+  { slug: 'strip-exif', category: 'image', accept: IMG, multiple: true },
   { slug: 'jpg-to-pdf', category: 'pdf', accept: IMG, multiple: true },
   { slug: 'merge-pdf', category: 'pdf', accept: 'application/pdf,.pdf', multiple: true },
   { slug: 'split-pdf', category: 'pdf', accept: 'application/pdf,.pdf', multiple: false },
+  { slug: 'rotate-pdf', category: 'pdf', accept: 'application/pdf,.pdf', multiple: true },
   { slug: 'pdf-to-jpg', category: 'pdf', accept: 'application/pdf,.pdf', multiple: true },
+  { slug: 'pdf-to-png', category: 'pdf', accept: 'application/pdf,.pdf', multiple: true },
   { slug: 'compress-pdf', category: 'pdf', accept: 'application/pdf,.pdf', multiple: true },
   { slug: 'ogg-to-mp3', category: 'audio', accept: 'audio/ogg,audio/opus,.ogg,.oga,.opus', multiple: true },
+  { slug: 'audio-to-mp3', category: 'audio', accept: 'audio/*,.wav,.m4a,.webm,.flac,.aac,.ogg,.opus,.mp3', multiple: true },
+  { slug: 'zip-files', category: 'archive', accept: '*/*', multiple: true },
 ] as const satisfies readonly Tool[];
 
 export type ToolSlug = (typeof TOOLS)[number]['slug'];
 
-export const CATEGORIES: Category[] = ['image', 'pdf', 'audio'];
+export const CATEGORIES: Category[] = ['image', 'pdf', 'audio', 'archive'];
 
 export function getTool(slug: string): Tool | undefined {
   return TOOLS.find((t) => t.slug === slug);

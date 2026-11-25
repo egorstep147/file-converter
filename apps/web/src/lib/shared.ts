@@ -17,9 +17,12 @@ export function toolsForFile(f: SharedInfo): ToolSlug[] {
   if (t === 'image/heic' || t === 'image/heif' || e === 'heic' || e === 'heif') return ['heic-to-jpg', 'compress-image', 'jpg-to-pdf'];
   if (t === 'image/png' || e === 'png') return ['png-to-jpg', 'compress-image', 'resize-image', 'jpg-to-pdf', 'jpg-to-webp'];
   if (t === 'image/webp' || e === 'webp') return ['webp-to-jpg', 'compress-image', 'resize-image', 'jpg-to-pdf'];
-  if (t.startsWith('image/') || e === 'jpg' || e === 'jpeg') return ['compress-image', 'resize-image', 'jpg-to-pdf', 'jpg-to-webp', 'jpg-to-png'];
-  if (t === 'application/pdf' || e === 'pdf') return ['compress-pdf', 'merge-pdf', 'split-pdf', 'pdf-to-jpg'];
-  if (t.startsWith('audio/') || ['ogg', 'oga', 'opus'].includes(e)) return ['ogg-to-mp3'];
+  if (['avif', 'bmp', 'gif', 'svg'].includes(e) || ['image/avif', 'image/bmp', 'image/gif', 'image/svg+xml'].includes(t)) return ['any-to-jpg', 'rotate-image'];
+  if (t.startsWith('image/') || e === 'jpg' || e === 'jpeg') return ['compress-image', 'resize-image', 'rotate-image', 'strip-exif', 'jpg-to-pdf', 'jpg-to-webp', 'jpg-to-png'];
+  if (t === 'application/pdf' || e === 'pdf') return ['compress-pdf', 'merge-pdf', 'split-pdf', 'rotate-pdf', 'pdf-to-jpg', 'pdf-to-png'];
+  if (['ogg', 'oga', 'opus'].includes(e) || t.includes('ogg') || t.includes('opus')) return ['ogg-to-mp3', 'audio-to-mp3'];
+  if (t.startsWith('audio/') || ['wav', 'm4a', 'webm', 'flac', 'aac', 'mp3'].includes(e)) return ['audio-to-mp3'];
+  if (t === 'application/zip' || e === 'zip') return ['zip-files'];
   return [];
 }
 

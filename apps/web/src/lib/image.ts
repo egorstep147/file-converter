@@ -29,10 +29,37 @@ export function fitSize(
 
 export class UnsupportedOutputError extends Error {}
 
+export type RotateOp = '90' | '180' | '270' | 'flip-h' | 'flip-v';
+
+async function decodeSvg(file: Blob): Promise<ImageBitmap> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const el = new Image();
+      el.onload = () => res(el);
+      el.onerror = () => rej(new Error('svg decode failed'));
+      el.src = url;
+    });
+    const w = img.naturalWidth || 1200;
+    const h = img.naturalHeight || 1200;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+    return await createImageBitmap(canvas);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export async function decodeImage(file: Blob): Promise<ImageBitmap> {
   if (await looksLikeHeic(file)) {
     const { heicTo } = await import('heic-to');
     return heicTo({ blob: file, type: 'bitmap' });
+  }
+  const name = 'name' in file ? String((file as File).name) : '';
+  if (file.type === 'image/svg+xml' || /\.svg$/i.test(name)) {
+    return decodeSvg(file);
   }
   return createImageBitmap(file, { imageOrientation: 'from-image' });
 }
@@ -80,4 +107,39 @@ export async function convertImage(file: File, o: ImageOptions): Promise<OutputF
   } finally {
     bmp.close();
   }
+}
+
+export async function transformImage(file: File, op: RotateOp, type: ImageMime): Promise<OutputFile> {
+  const bmp = await decodeImage(file);
+  try {
+    const swap = op === '90' || op === '270';
+    const w = swap ? bmp.height : bmp.width;
+    const h = swap ? bmp.width : bmp.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d')!;
+    if (type === 'image/jpeg') {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.translate(w / 2, h / 2);
+    if (op === '90') ctx.rotate(Math.PI / 2);
+    else if (op === '180') ctx.rotate(Math.PI);
+    else if (op === '270') ctx.rotate(-Math.PI / 2);
+    else if (op === 'flip-h') ctx.scale(-1, 1);
+    else if (op === 'flip-v') ctx.scale(1, -1);
+    ctx.drawImage(bmp, -bmp.width / 2, -bmp.height / 2);
+    const blob = await new Promise<Blob>((res, rej) =>
+      canvas.toBlob((b) => (b ? (b.type === type ? res(b) : rej(new UnsupportedOutputError(type))) : rej(new Error('encode failed'))), type, 0.92),
+    );
+    return { name: renameTo(file.name, type, '-rotated'), blob };
+  } finally {
+    bmp.close();
+  }
+}
+
+/** Re-encode through canvas so EXIF/GPS/camera metadata is completely stripped. */
+export async function stripExif(file: File, type: ImageMime): Promise<OutputFile> {
+  return convertImage(file, { type, quality: 0.95, suffix: '-clean' });
 }

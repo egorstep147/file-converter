@@ -61,6 +61,28 @@ export async function zipFiles(files: OutputFile[]): Promise<Blob> {
   return new Blob([data as BlobPart], { type: 'application/zip' });
 }
 
+const MIME_BY_EXT: Record<string, string> = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif', bmp: 'image/bmp',
+  pdf: 'application/pdf', mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav',
+  txt: 'text/plain', json: 'application/json', csv: 'text/csv', html: 'text/html',
+};
+
+export async function unzipFile(file: Blob): Promise<OutputFile[]> {
+  const { unzipSync } = await import('fflate');
+  const entries = unzipSync(new Uint8Array(await file.arrayBuffer()));
+  const out: OutputFile[] = [];
+  for (const [rawPath, bytes] of Object.entries(entries)) {
+    if (rawPath.endsWith('/') || rawPath.startsWith('__MACOSX/')) continue;
+    const name = rawPath.split('/').pop() || rawPath;
+    const ext = name.toLowerCase().split('.').pop() ?? '';
+    const type = MIME_BY_EXT[ext] ?? 'application/octet-stream';
+    out.push({ name, blob: new Blob([bytes as BlobPart], { type }) });
+  }
+  if (!out.length) throw new Error('empty archive');
+  return out;
+}
+
 /**
  * Parse page ranges like "1-3, 5, 8-" for a document with `total` pages.
  * Returns 0-based indexes in the given order, without duplicates. Throws on invalid input.

@@ -8,7 +8,7 @@ interface Props {
 }
 const { lang, exclude } = Astro.props;
 const d = t(lang);
-const ICON = { image: '🖼️', pdf: '📄', audio: '🎙️' } as const;
+const ICON = { image: '🖼️', pdf: '📄', audio: '🎙️', archive: '📦' } as const;
 const BADGES: Record<ToolSlug, string> = {
   'heic-to-jpg': 'HEIC → JPG',
   'compress-image': 'JPG · PNG · WebP',
@@ -17,21 +17,28 @@ const BADGES: Record<ToolSlug, string> = {
   'webp-to-jpg': 'WebP → JPG',
   'jpg-to-png': 'JPG → PNG',
   'jpg-to-webp': 'JPG → WebP',
+  'any-to-jpg': 'AVIF · SVG → JPG',
+  'rotate-image': '↻ 90° / ⇄',
+  'strip-exif': 'EXIF ✕',
   'jpg-to-pdf': 'IMG → PDF',
   'merge-pdf': 'PDF + PDF',
   'split-pdf': 'PDF ✂',
+  'rotate-pdf': 'PDF ↻',
   'pdf-to-jpg': 'PDF → JPG',
+  'pdf-to-png': 'PDF → PNG',
   'compress-pdf': 'PDF ↓ MB',
   'ogg-to-mp3': 'OGG → MP3',
+  'audio-to-mp3': 'WAV · M4A → MP3',
+  'zip-files': 'ZIP ⇄',
 };
 ---
 
 {CATEGORIES.map((cat) => (
-  <div class="cat">
+  <div class="cat" data-cat={cat}>
     <h3>{ICON[cat]} {d.ui.categories[cat]}</h3>
     <ul class="cards">
       {TOOLS.filter((x) => x.category === cat && x.slug !== exclude).map((x) => (
-        <li>
+        <li data-search={`${x.slug} ${d.tools[x.slug as ToolSlug].name} ${BADGES[x.slug as ToolSlug]}`.toLowerCase()}>
           <a href={toolPath(lang, x.slug)}>
             <span class="card-name">{d.tools[x.slug as ToolSlug].name}</span>
             <span class="card-badge" aria-hidden="true">{BADGES[x.slug as ToolSlug]}</span>

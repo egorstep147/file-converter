@@ -1,22 +1,26 @@
 /** Glue between the UI and the converters: one function per tool slug. */
 import type { ToolSlug } from '../tools';
-import type { OutputFile } from './files';
-import { bitmapToBlob, convertImage, decodeImage, UnsupportedOutputError, type ImageMime } from './image';
+import { zipFiles, type OutputFile } from './files';
+import { bitmapToBlob, convertImage, decodeImage, stripExif, transformImage, UnsupportedOutputError, type ImageMime, type RotateOp } from './image';
 
 export interface Options {
   quality: number; // 1..100
   format: 'auto' | ImageMime;
+  outFormat: ImageMime;
   maxWidth: string;
   resizeMode: 'percent' | 'px';
   percent: number;
   width: string;
   height: string;
+  rotateOp: RotateOp;
   pageSize: 'image' | 'a4';
   splitMode: 'each' | 'ranges';
   ranges: string;
+  pdfAngle: 90 | 180 | 270;
   dpi: number;
   level: 'strong' | 'medium' | 'light';
   kbps: number;
+  zipMode: 'create' | 'extract';
   /** retry path after "browser cannot encode WebP": save JPEG instead */
   fallbackJpeg: boolean;
 }
@@ -24,17 +28,21 @@ export interface Options {
 export const DEFAULT_OPTIONS: Options = {
   quality: 75,
   format: 'auto',
+  outFormat: 'image/jpeg',
   maxWidth: '',
   resizeMode: 'percent',
   percent: 50,
   width: '1920',
   height: '1080',
+  rotateOp: '90',
   pageSize: 'a4',
   splitMode: 'each',
   ranges: '',
+  pdfAngle: 90,
   dpi: 150,
   level: 'medium',
   kbps: 64,
+  zipMode: 'create',
   fallbackJpeg: false,
 };
 
@@ -91,6 +99,18 @@ async function one(slug: ToolSlug, f: File, o: Options, progress: Progress): Pro
   if (fixed) return { outputs: [await convertImage(f, { type: fixed, quality: 0.92 })] };
 
   switch (slug) {
+    case 'any-to-jpg': {
+      const type = o.fallbackJpeg ? 'image/jpeg' : o.outFormat;
+      return { outputs: [await convertImage(f, { type, quality: o.quality / 100 })] };
+    }
+    case 'rotate-image': {
+      const type = autoType(f, 'resize');
+      return { outputs: [await transformImage(f, o.rotateOp, type)] };
+    }
+    case 'strip-exif': {
+      const type = autoType(f, 'resize');
+      return { outputs: [await stripExif(f, type)] };
+    }
     case 'compress-image': {
       const type = o.fallbackJpeg ? 'image/jpeg' : o.format === 'auto' ? autoType(f, 'compress') : o.format;
       const out = await convertImage(f, { type, quality: o.quality / 100, maxWidth: num(o.maxWidth), suffix: '-compressed' });
@@ -115,9 +135,17 @@ async function one(slug: ToolSlug, f: File, o: Options, progress: Progress): Pro
       }
       return { outputs: await splitPdf(f, pages) };
     }
+    case 'rotate-pdf': {
+      const { rotatePdf } = await import('./pdf');
+      return { outputs: [await rotatePdf(f, o.pdfAngle)] };
+    }
     case 'pdf-to-jpg': {
       const { pdfToJpg } = await import('./pdf');
       return { outputs: await pdfToJpg(f, o.dpi, (d, t) => progress(d / t)) };
+    }
+    case 'pdf-to-png': {
+      const { pdfToPng } = await import('./pdf');
+      return { outputs: await pdfToPng(f, o.dpi, (d, t) => progress(d / t)) };
     }
     case 'compress-pdf': {
       const { compressPdf } = await import('./pdf');
@@ -128,12 +156,25 @@ async function one(slug: ToolSlug, f: File, o: Options, progress: Progress): Pro
       const { oggToMp3 } = await import('./audio');
       return { outputs: [await oggToMp3(f, o.kbps, (d, t) => progress(d / t))] };
     }
+    case 'audio-to-mp3': {
+      const { audioToMp3 } = await import('./audio');
+      return { outputs: [await audioToMp3(f, o.kbps, (d, t) => progress(d / t))] };
+    }
+    case 'zip-files': {
+      const { unzipFile } = await import('./files');
+      return { outputs: await unzipFile(f) };
+    }
     default:
       throw new Error(`no single-file runner for ${slug}`);
   }
 }
 
 async function combined(slug: ToolSlug, files: File[], o: Options, progress: Progress): Promise<OutputFile> {
+  if (slug === 'zip-files') {
+    const blob = await zipFiles(files.map((f) => ({ name: f.name, blob: f })));
+    progress(1);
+    return { name: 'archive.zip', blob };
+  }
   const pdf = await import('./pdf');
   if (slug === 'merge-pdf') return pdf.mergePdfs(files);
   // jpg-to-pdf: pdf-lib embeds only JPEG/PNG, so normalize everything else to JPEG first
@@ -157,7 +198,7 @@ async function combined(slug: ToolSlug, files: File[], o: Options, progress: Pro
  * errors are per file, never thrown. For non-combining tools results[i] belongs to files[i].
  */
 export async function runTool(slug: ToolSlug, files: File[], o: Options, progress: Progress, onFile: OnFile = () => {}): Promise<Result[]> {
-  if (COMBINES.includes(slug)) {
+  if (COMBINES.includes(slug) || (slug === 'zip-files' && o.zipMode === 'create')) {
     const source = files.map((f) => f.name).join(', ');
     const inputSize = files.reduce((n, f) => n + f.size, 0);
     files.forEach((_, i) => onFile(i, { status: 'processing', progress: 0 }));
