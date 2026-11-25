@@ -4,11 +4,11 @@
 //  • Android share target: the system "Share" sheet POSTs files to /share-target/;
 //    we keep them in a cache for a moment and redirect to /share/ where the user picks a tool.
 // Files never leave the device: everything here runs inside the browser.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const PAGES = `pages-${VERSION}`;
 const ASSETS = `assets-${VERSION}`;
 const SHARED = 'shared-files';
-const CORE = ['/', '/en/', '/es/', '/pt/', '/ru/', '/id/', '/de/', '/fr/', '/ja/', '/ko/', '/tr/', '/share/', '/favicon.svg', '/manifest.webmanifest'];
+const CORE = ['/', '/en/', '/share/', '/favicon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(PAGES).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));

@@ -1,5 +1,5 @@
 ---
-import { HREFLANG, LANGS, DEFAULT_LANG, homePath, t, type Lang } from '../i18n';
+import { HREFLANG, LANGS, DEFAULT_LANG, homePath, isRtl, t, type Lang } from '../i18n';
 import PwaHead from '../components/PwaHead.astro';
 import '../styles/global.css';
 
@@ -27,11 +27,26 @@ const OG_LOCALE: Record<Lang, string> = {
   ja: 'ja_JP',
   ko: 'ko_KR',
   tr: 'tr_TR',
+  zh: 'zh_CN',
+  hi: 'hi_IN',
+  ar: 'ar_AR',
+  it: 'it_IT',
+  pl: 'pl_PL',
+  nl: 'nl_NL',
+  vi: 'vi_VN',
+  th: 'th_TH',
+  uk: 'uk_UA',
+  cs: 'cs_CZ',
+  sv: 'sv_SE',
+  ro: 'ro_RO',
+  el: 'el_GR',
+  hu: 'hu_HU',
+  ms: 'ms_MY',
 };
 ---
 
 <!doctype html>
-<html lang={HREFLANG[lang]}>
+<html lang={HREFLANG[lang]} dir={isRtl(lang) ? 'rtl' : undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -71,11 +86,31 @@ const OG_LOCALE: Record<Lang, string> = {
     <header class="top">
       <a class="logo" href={homePath(lang)}>⇄ {ui.siteName}</a>
       <div class="top-right">
-        <nav class="langs" aria-label={ui.language}>
-          {LANGS.map((l) => (
-            <a href={`/${l}/${rest}`} hreflang={HREFLANG[l]} aria-current={l === lang ? 'page' : undefined}>{l.toUpperCase()}</a>
-          ))}
-        </nav>
+        <details class="lang-picker" id="lang-picker">
+          <summary class="lang-trigger" aria-label={ui.language}>
+            <span aria-hidden="true">🌐</span>
+            <strong>{lang.toUpperCase()}</strong>
+            <span class="lang-current">{t(lang).langName}</span>
+            <span class="lang-caret" aria-hidden="true">▾</span>
+          </summary>
+          <div class="lang-panel">
+            <input type="search" class="lang-search" placeholder="Search…" autocomplete="off" aria-label={ui.language} />
+            <nav class="lang-menu" aria-label={ui.language}>
+              {LANGS.map((l) => (
+                <a
+                  href={`/${l}/${rest}`}
+                  hreflang={HREFLANG[l]}
+                  aria-current={l === lang ? 'page' : undefined}
+                  data-lang-label={`${l} ${HREFLANG[l].toLowerCase()} ${t(l).langName.toLowerCase()}`}
+                >
+                  <span class="lang-code">{l.toUpperCase()}</span>
+                  <span class="lang-name">{t(l).langName}</span>
+                </a>
+              ))}
+            </nav>
+            <p class="lang-empty" hidden>—</p>
+          </div>
+        </details>
         <button type="button" class="theme-btn" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">◐</button>
       </div>
     </header>
@@ -91,21 +126,49 @@ const OG_LOCALE: Record<Lang, string> = {
     <script is:inline>
       (function () {
         var btn = document.getElementById('theme-toggle');
-        if (!btn) return;
-        var root = document.documentElement;
-        var sync = function () {
-          var cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-          btn.textContent = cur === 'dark' ? '☀' : '☾';
-          btn.setAttribute('aria-pressed', String(cur === 'dark'));
-        };
-        sync();
-        btn.addEventListener('click', function () {
-          var cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-          var next = cur === 'dark' ? 'light' : 'dark';
-          root.dataset.theme = next;
-          try { localStorage.setItem('theme', next); } catch {}
+        if (btn) {
+          var root = document.documentElement;
+          var sync = function () {
+            var cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            btn.textContent = cur === 'dark' ? '☀' : '☾';
+            btn.setAttribute('aria-pressed', String(cur === 'dark'));
+          };
           sync();
-        });
+          btn.addEventListener('click', function () {
+            var cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            var next = cur === 'dark' ? 'light' : 'dark';
+            root.dataset.theme = next;
+            try { localStorage.setItem('theme', next); } catch {}
+            sync();
+          });
+        }
+
+        var picker = document.getElementById('lang-picker');
+        if (picker) {
+          var search = picker.querySelector('.lang-search');
+          var links = picker.querySelectorAll('.lang-menu a');
+          var empty = picker.querySelector('.lang-empty');
+          var filter = function () {
+            var q = (search ? search.value : '').trim().toLowerCase();
+            var shown = 0;
+            links.forEach(function (a) {
+              var ok = !q || (a.dataset.langLabel || '').indexOf(q) !== -1;
+              a.hidden = !ok;
+              if (ok) shown++;
+            });
+            if (empty) empty.hidden = shown > 0;
+          };
+          if (search) search.addEventListener('input', filter);
+          picker.addEventListener('toggle', function () {
+            if (picker.open && search && matchMedia('(pointer: fine)').matches) search.focus();
+          });
+          document.addEventListener('click', function (e) {
+            if (picker.open && !picker.contains(e.target)) picker.open = false;
+          });
+          document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && picker.open) picker.open = false;
+          });
+        }
       })();
     </script>
   </body>

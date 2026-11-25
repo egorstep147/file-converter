@@ -55,13 +55,20 @@ test('after choosing files the drop zone collapses into "Add more files"', async
   await expect(page.locator('.files li')).toHaveCount(2);
 });
 
-test('icon buttons and language chips are at least 44px', async ({ page }) => {
+test('icon buttons and language picker are at least 44px', async ({ page }) => {
   await page.goto('/en/merge-pdf/');
   await page.locator('astro-island:not([ssr])').waitFor({ state: 'attached' });
   await page.getByTestId('file-input').setInputFiles([fx('text.pdf'), fx('scan.pdf')]);
-  for (const box of [await page.locator('.icon').first().boundingBox(), await page.locator('.langs a').first().boundingBox()]) {
+  for (const box of [await page.locator('.icon').first().boundingBox(), await page.locator('.lang-trigger').boundingBox()]) {
     expect(box!.height).toBeGreaterThanOrEqual(44);
   }
+  await page.locator('.lang-trigger').click();
+  await expect(page.locator('.lang-menu a')).toHaveCount(25);
+  const itemBox = await page.locator('.lang-menu a').first().boundingBox();
+  expect(itemBox!.height).toBeGreaterThanOrEqual(44);
+  await page.locator('.lang-search').fill('zh');
+  await expect(page.locator('.lang-menu a:visible')).toHaveCount(1);
+  await expect(page.locator('.lang-menu a:visible')).toContainText('中文');
 });
 
 test('resize image by pixels', async ({ page }) => {
@@ -143,15 +150,17 @@ test('voice message to MP3', async ({ page }) => {
 test('pages: SEO tags, hreflang, other languages render', async ({ page }) => {
   await page.goto('/ru/heic-to-jpg/');
   await expect(page.locator('h1')).toHaveText('Конвертировать HEIC в JPG');
-  await expect(page.locator('link[rel=alternate][hreflang]')).toHaveCount(11);
+  await expect(page.locator('link[rel=alternate][hreflang]')).toHaveCount(26);
   await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(3);
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-cover\.png$/);
   await page.goto('/id/');
   await expect(page.locator('.cards a')).toHaveCount(13);
-  await page.goto('/de/heic-to-jpg/');
-  await expect(page.locator('h1')).toHaveText('HEIC in JPG umwandeln');
-  await page.goto('/ja/');
+  await page.goto('/zh/heic-to-jpg/');
+  await expect(page.locator('h1')).toHaveText('将 HEIC 转换为 JPG');
+  await page.goto('/hi/');
   await expect(page.locator('.cards a')).toHaveCount(13);
+  await page.goto('/ar/');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 });
 
 test('WebP error offers a way out: "Save as JPG instead"', async ({ page }) => {

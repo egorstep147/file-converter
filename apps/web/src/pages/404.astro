@@ -18,9 +18,10 @@ const ui = t(DEFAULT_LANG).ui;
   <body>
     <main class="center">
       <h1>404</h1>
-      <ul class="cards">
-        {LANGS.map((l) => <li><a href={homePath(l)}>{t(l).ui.notFound} — {t(l).ui.toHome}</a></li>)}
-      </ul>
+      <p class="lead">{ui.notFound}</p>
+      <nav class="pills-404" aria-label={ui.toHome}>
+        {LANGS.map((l) => <a href={homePath(l)}>{t(l).langName}</a>)}
+      </nav>
     </main>
   </body>
 </html>
