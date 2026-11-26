@@ -23,7 +23,7 @@ const popularLangs = LANGS.filter((l) => LANG_META[l].popular);
 <html lang={HREFLANG[lang]} dir={isRtl(lang) ? 'rtl' : undefined}>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <script is:inline>
       (function () {
         try {
@@ -57,53 +57,84 @@ const popularLangs = LANGS.filter((l) => LANG_META[l].popular);
     {cfToken && <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: cfToken })} />}
   </head>
   <body>
-    <header class="top">
-      <a class="logo" href={homePath(lang)}>⇄ {ui.siteName}</a>
-      <div class="top-right">
-        <details class="lang-picker" id="lang-picker">
-          <summary class="lang-trigger" aria-label={ui.language}>
-            <span aria-hidden="true">🌐</span>
-            <strong>{lang.toUpperCase()}</strong>
-            <span class="lang-current">{t(lang).langName}</span>
-            <span class="lang-caret" aria-hidden="true">▾</span>
-          </summary>
-          <div class="lang-panel">
-            <div class="lang-head">
-              <input type="search" class="lang-search" placeholder={`Search ${LANGS.length} languages…`} autocomplete="off" aria-label={ui.language} />
-              <div class="lang-suggested" hidden>
-                <a class="lang-suggested-link" href="#"></a>
+    <header class="top-wrap">
+      <div class="top">
+        <a class="logo" href={homePath(lang)}>
+          <span class="logo-mark" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="logo-text">{ui.siteName}</span>
+        </a>
+        <div class="top-right">
+          <details class="lang-picker" id="lang-picker">
+            <summary class="lang-trigger" aria-label={ui.language}>
+              <svg class="ui-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" />
+                <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" stroke="currentColor" stroke-width="1.8" />
+              </svg>
+              <strong>{lang.toUpperCase()}</strong>
+              <span class="lang-current">{t(lang).langName}</span>
+              <svg class="lang-caret" width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </summary>
+            <div class="lang-panel">
+              <div class="lang-handle" aria-hidden="true"></div>
+              <div class="lang-head">
+                <div class="lang-sheet-bar">
+                  <strong class="lang-sheet-title">{ui.language} ({LANGS.length})</strong>
+                  <button type="button" class="lang-close" aria-label="Close">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                    </svg>
+                  </button>
+                </div>
+                <input type="search" class="lang-search" placeholder={`Search ${LANGS.length} languages…`} autocomplete="off" aria-label={ui.language} />
+                <div class="lang-suggested" hidden>
+                  <a class="lang-suggested-link" href="#"></a>
+                </div>
+                <div class="lang-tabs" role="tablist" aria-label={ui.language}>
+                  <button type="button" class="lang-tab active" data-region="all" aria-pressed="true">All ({LANGS.length})</button>
+                  <button type="button" class="lang-tab" data-region="popular" aria-pressed="false">Popular</button>
+                  <button type="button" class="lang-tab" data-region="europe" aria-pressed="false">Europe</button>
+                  <button type="button" class="lang-tab" data-region="asia" aria-pressed="false">Asia</button>
+                  <button type="button" class="lang-tab" data-region="mea" aria-pressed="false">Middle East &amp; Africa</button>
+                </div>
               </div>
-              <div class="lang-tabs" role="tablist" aria-label={ui.language}>
-                <button type="button" class="lang-tab active" data-region="all" aria-pressed="true">All ({LANGS.length})</button>
-                <button type="button" class="lang-tab" data-region="popular" aria-pressed="false">Popular</button>
-                <button type="button" class="lang-tab" data-region="europe" aria-pressed="false">Europe</button>
-                <button type="button" class="lang-tab" data-region="asia" aria-pressed="false">Asia</button>
-                <button type="button" class="lang-tab" data-region="mea" aria-pressed="false">Middle East &amp; Africa</button>
-              </div>
+              <nav class="lang-menu" aria-label={ui.language}>
+                {LANGS.map((l) => (
+                  <a
+                    href={`/${l}/${rest}`}
+                    hreflang={HREFLANG[l]}
+                    aria-current={l === lang ? 'page' : undefined}
+                    data-lang={l}
+                    data-region={LANG_META[l].region}
+                    data-popular={LANG_META[l].popular ? '1' : undefined}
+                    data-lang-label={`${l} ${HREFLANG[l].toLowerCase()} ${t(l).langName.toLowerCase()} ${LANG_META[l].enName.toLowerCase()}`}
+                  >
+                    <span class="lang-code">{l.toUpperCase()}</span>
+                    <span class="lang-labels">
+                      <span class="lang-name" dir="auto">{t(l).langName}</span>
+                      <span class="lang-en">{LANG_META[l].enName}</span>
+                    </span>
+                  </a>
+                ))}
+              </nav>
+              <p class="lang-empty" hidden>—</p>
             </div>
-            <nav class="lang-menu" aria-label={ui.language}>
-              {LANGS.map((l) => (
-                <a
-                  href={`/${l}/${rest}`}
-                  hreflang={HREFLANG[l]}
-                  aria-current={l === lang ? 'page' : undefined}
-                  data-lang={l}
-                  data-region={LANG_META[l].region}
-                  data-popular={LANG_META[l].popular ? '1' : undefined}
-                  data-lang-label={`${l} ${HREFLANG[l].toLowerCase()} ${t(l).langName.toLowerCase()} ${LANG_META[l].enName.toLowerCase()}`}
-                >
-                  <span class="lang-code">{l.toUpperCase()}</span>
-                  <span class="lang-labels">
-                    <span class="lang-name" dir="auto">{t(l).langName}</span>
-                    <span class="lang-en">{LANG_META[l].enName}</span>
-                  </span>
-                </a>
-              ))}
-            </nav>
-            <p class="lang-empty" hidden>—</p>
-          </div>
-        </details>
-        <button type="button" class="theme-btn" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">◐</button>
+          </details>
+          <button type="button" class="theme-btn" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+            <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" />
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
       </div>
     </header>
     <main>
@@ -128,7 +159,7 @@ const popularLangs = LANGS.filter((l) => LANG_META[l].popular);
           var root = document.documentElement;
           var sync = function () {
             var cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            btn.textContent = cur === 'dark' ? '☀' : '☾';
+            btn.dataset.mode = cur;
             btn.setAttribute('aria-pressed', String(cur === 'dark'));
           };
           sync();
@@ -144,12 +175,14 @@ const popularLangs = LANGS.filter((l) => LANG_META[l].popular);
         var picker = document.getElementById('lang-picker');
         if (picker) {
           var search = picker.querySelector('.lang-search');
+          var closeBtn = picker.querySelector('.lang-close');
           var tabs = picker.querySelectorAll('.lang-tab');
           var links = picker.querySelectorAll('.lang-menu a');
           var empty = picker.querySelector('.lang-empty');
           var sugWrap = picker.querySelector('.lang-suggested');
           var sugLink = picker.querySelector('.lang-suggested-link');
           var activeRegion = 'all';
+          if (closeBtn) closeBtn.addEventListener('click', function () { picker.open = false; });
 
           var filter = function () {
             var q = (search ? search.value : '').trim().toLowerCase();
@@ -214,7 +247,7 @@ const popularLangs = LANGS.filter((l) => LANG_META[l].popular);
             if (picker.open && search && matchMedia('(pointer: fine)').matches) search.focus();
           });
           document.addEventListener('click', function (e) {
-            if (picker.open && !picker.contains(e.target)) picker.open = false;
+            if (picker.open && (e.target === picker || !picker.contains(e.target))) picker.open = false;
           });
           document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && picker.open) picker.open = false;

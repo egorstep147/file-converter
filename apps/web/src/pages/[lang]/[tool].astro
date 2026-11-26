@@ -1,7 +1,7 @@
 ---
 import Converter from '../../components/Converter';
 import ToolCards from '../../components/ToolCards.astro';
-import { LANGS, t, type Lang } from '../../i18n';
+import { LANGS, homePath, t, type Lang } from '../../i18n';
 import Base from '../../layouts/Base.astro';
 import { TOOLS, type ToolSlug } from '../../tools';
 
@@ -46,7 +46,11 @@ const jsonLd = [
 ---
 
 <Base lang={lang} title={text.title} desc={text.desc} rest={`${tool.slug}/`} jsonLd={jsonLd}>
-  <section class="hero">
+  <section class="hero tool-hero">
+    <nav class="tool-crumbs" aria-label="Breadcrumb">
+      <a class="back-link" href={homePath(lang)}>← {ui.toHome}</a>
+      <span class="cat-tag" data-cat={tool.category}>{ui.categories[tool.category]}</span>
+    </nav>
     <h1>{text.h1}</h1>
     <p class="lead">{text.intro}</p>
   </section>

@@ -2,6 +2,7 @@
 import ToolCards from '../../components/ToolCards.astro';
 import { LANGS, t, type Lang } from '../../i18n';
 import Base from '../../layouts/Base.astro';
+import { CATEGORIES, TOOLS } from '../../tools';
 
 export function getStaticPaths() {
   return LANGS.map((lang) => ({ params: { lang } }));
@@ -9,6 +10,7 @@ export function getStaticPaths() {
 
 const lang = Astro.params.lang as Lang;
 const ui = t(lang).ui;
+const counts = Object.fromEntries(CATEGORIES.map((c) => [c, TOOLS.filter((x) => x.category === c).length]));
 const jsonLd = [
   {
     '@context': 'https://schema.org',
@@ -21,14 +23,36 @@ const jsonLd = [
 ---
 
 <Base lang={lang} title={ui.homeTitle} desc={ui.homeDesc} rest="" jsonLd={jsonLd}>
-  <section class="hero">
+  <section class="hero home-hero">
+    <p class="privacy-pill">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2" />
+        <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" stroke-width="2" />
+      </svg>
+      <span>{ui.privacy}</span>
+    </p>
     <h1>{ui.homeH1}</h1>
     <p class="lead">{ui.homeIntro}</p>
-    <p class="privacy">🔒 {ui.privacy}</p>
+    <div class="search-wrap">
+      <svg class="search-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+        <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      </svg>
+      <input type="search" id="tool-search" class="tool-search" placeholder={ui.searchTools} autocomplete="off" aria-label={ui.searchTools} />
+    </div>
+    <div class="cat-chips" id="cat-chips" role="group" aria-label={ui.otherTools}>
+      <button type="button" class="cat-chip active" data-cat="all" aria-pressed="true">
+        <span>All</span>
+        <span class="chip-count">{TOOLS.length}</span>
+      </button>
+      {CATEGORIES.map((cat) => (
+        <button type="button" class="cat-chip" data-cat={cat} aria-pressed="false">
+          <span>{ui.categories[cat]}</span>
+          <span class="chip-count">{counts[cat]}</span>
+        </button>
+      ))}
+    </div>
   </section>
-  <div class="search-wrap">
-    <input type="search" id="tool-search" class="tool-search" placeholder={ui.searchTools} autocomplete="off" aria-label={ui.searchTools} />
-  </div>
   <div id="tools-grid">
     <ToolCards lang={lang} />
   </div>
@@ -36,17 +60,34 @@ const jsonLd = [
     (function () {
       var input = document.getElementById('tool-search');
       var grid = document.getElementById('tools-grid');
-      if (!input || !grid) return;
-      input.addEventListener('input', function () {
-        var q = input.value.trim().toLowerCase();
+      var chips = document.querySelectorAll('#cat-chips .cat-chip');
+      if (!grid) return;
+      var activeCat = 'all';
+
+      var apply = function () {
+        var q = input ? input.value.trim().toLowerCase() : '';
         grid.querySelectorAll('.cat').forEach(function (cat) {
+          var catOk = activeCat === 'all' || cat.dataset.cat === activeCat;
           var vis = 0;
           cat.querySelectorAll('li[data-search]').forEach(function (li) {
-            var ok = !q || (li.dataset.search || '').indexOf(q) !== -1;
+            var ok = catOk && (!q || (li.dataset.search || '').indexOf(q) !== -1);
             li.hidden = !ok;
             if (ok) vis++;
           });
           cat.hidden = vis === 0;
+        });
+      };
+
+      if (input) input.addEventListener('input', apply);
+      chips.forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          activeCat = chip.dataset.cat || 'all';
+          chips.forEach(function (c) {
+            var on = c === chip;
+            c.classList.toggle('active', on);
+            c.setAttribute('aria-pressed', String(on));
+          });
+          apply();
         });
       });
     })();

@@ -43,6 +43,7 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
   const [results, setResults] = useState<Result[] | null>(null);
   const [over, setOver] = useState(false);
   const [pageDrag, setPageDrag] = useState(false);
+  const [toast, setToast] = useState('');
   const filesRef = useRef<File[]>([]);
   filesRef.current = files;
   const input = useRef<HTMLInputElement>(null);
@@ -103,6 +104,7 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
       if (pasted.length) {
         e.preventDefault();
         add(pasted);
+        setToast(pasted.map((f) => f.name).slice(0, 2).join(', '));
       }
     };
     const hasFiles = (e: globalThis.DragEvent) => e.dataTransfer?.types?.includes('Files') ?? false;
@@ -140,6 +142,12 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
       window.removeEventListener('drop', onWindowDrop);
     };
   }, [multiple]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(''), 2400);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -215,11 +223,22 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
 
       {files.length === 0 ? (
         <label htmlFor={inputId} className={`drop${over ? ' over' : ''}`} {...dragProps}>
+          <span className="drop-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+              <path d="M12 16V4m0 0-5 5m5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
           <span className="drop-title">{multiple ? ui.drop : ui.dropOne}</span>
           <span className="drop-or">{ui.or}</span>
-          <span className="btn">{multiple ? ui.choose : ui.chooseOne}</span>
+          <span className="btn primary">{multiple ? ui.choose : ui.chooseOne}</span>
           <span className="drop-paste">{ui.pasteHint}</span>
-          <span className="drop-privacy">🔒 {ui.privacy}</span>
+          <span className="drop-privacy">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" strokeWidth="2" />
+            </svg>
+            <span>{ui.privacy}</span>
+          </span>
         </label>
       ) : (
         <label htmlFor={inputId} className={`drop compact${over ? ' over' : ''}${busy ? ' off' : ''}`} {...dragProps} data-testid="add-more">
@@ -273,7 +292,8 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
 
           <div className="actions">
             <button type="button" className="btn primary" onClick={() => run()} disabled={!canRun}>
-              {busy ? `${ui.working} ${Math.round(progress * 100)}%` : ui.convert}
+              {busy && <span className="spinner" aria-hidden="true" />}
+              <span>{busy ? `${ui.working} ${Math.round(progress * 100)}%` : ui.convert}</span>
             </button>
             <button type="button" className="btn ghost" onClick={reset} disabled={busy}>{ui.clear}</button>
           </div>
@@ -286,6 +306,12 @@ export default function Converter({ slug, accept, multiple, ui }: Props) {
       )}
 
       {results && <Results results={results} outputs={outputs} ui={ui} combines={combines} compareBeforeUrl={compareInputUrl} onJpg={() => run({ ...opts, fallbackJpeg: true })} />}
+      {toast && (
+        <div className="toast" role="status" aria-live="polite">
+          <span className="toast-dot" aria-hidden="true">✓</span>
+          <span>{toast}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -297,7 +323,9 @@ function BeforeAfter({ beforeUrl, afterUrl, beforeSize, afterSize, ui }: { befor
       <div className="ba-stage">
         <img src={afterUrl} alt={ui.after} className="ba-img" />
         <img src={beforeUrl} alt={ui.before} className="ba-img ba-top" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }} />
-        <div className="ba-line" style={{ left: `${pos}%` }} aria-hidden="true" />
+        <div className="ba-line" style={{ left: `${pos}%` }} aria-hidden="true">
+          <span className="ba-knob">⇄</span>
+        </div>
       </div>
       <input type="range" className="ba-slider" min={0} max={100} value={pos} onChange={(e) => setPos(Number(e.target.value))} aria-label={`${ui.before} / ${ui.after}`} />
       <div className="ba-labels">
@@ -413,15 +441,22 @@ function Results({ results, outputs, ui, combines, compareBeforeUrl, onJpg }: { 
                   const change = r.outputs.length === 1 && r.note !== 'notSmaller' ? sizeChange(r.inputSize, o.blob.size) : null;
                   return (
                     <div key={j} className="out">
-                      {o.blob.type.startsWith('image/') && <img className="thumb" src={urls.get(o)} alt="" />}
-                      <span className="fname">
-                        {o.name}
-                        <small className="meta">
-                          {change !== null ? `${formatBytes(r.inputSize)} → ${formatBytes(o.blob.size)}` : formatBytes(o.blob.size)}
-                        </small>
-                      </span>
-                      {change !== null && <span className={`badge ${change < 0 ? 'ok' : 'neutral'}`}>{pctLabel(change)}</span>}
-                      <a className="btn" href={urls.get(o)} download={o.name} onClick={(e) => nativeSave(e, [o])}>↓ {ui.download}</a>
+                      <div className="out-head">
+                        {o.blob.type.startsWith('image/') && <img className="thumb" src={urls.get(o)} alt="" />}
+                        <span className="fname">
+                          <span className="fname-text">{o.name}</span>
+                          <small className="meta">
+                            {change !== null ? `${formatBytes(r.inputSize)} → ${formatBytes(o.blob.size)}` : formatBytes(o.blob.size)}
+                          </small>
+                        </span>
+                        {change !== null && <span className={`badge ${change < 0 ? 'ok' : 'neutral'}`}>{pctLabel(change)}</span>}
+                      </div>
+                      <a className="btn out-dl" href={urls.get(o)} download={o.name} onClick={(e) => nativeSave(e, [o])}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M12 4v12m0 0-4-4m4 4 4-4M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span>{ui.download}</span>
+                      </a>
                     </div>
                   );
                 })}
@@ -443,18 +478,56 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function Segmented<T extends string | number>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: readonly { value: T; label: string; title?: string }[];
+  onChange: (v: T) => void;
+  label: string;
+}) {
+  return (
+    <div className="seg" role="group" aria-label={label}>
+      {options.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <button
+            key={String(opt.value)}
+            type="button"
+            className={`seg-btn${active ? ' active' : ''}`}
+            aria-pressed={active}
+            title={opt.title}
+            onClick={() => onChange(opt.value)}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ToolOptions({ slug, o, set, ui }: { slug: ToolSlug; o: Options; set: <K extends keyof Options>(k: K, v: Options[K]) => void; ui: UI }) {
   switch (slug) {
     case 'any-to-jpg':
       return (
         <div className="options">
-          <Field label={ui.format}>
-            <select value={o.outFormat} onChange={(e) => set('outFormat', e.target.value as ImageMime)}>
-              <option value="image/jpeg">JPG</option>
-              <option value="image/png">PNG</option>
-              <option value="image/webp">WebP</option>
-            </select>
-          </Field>
+          <div className="field">
+            <span>{ui.format}</span>
+            <Segmented
+              label={ui.format}
+              value={o.outFormat}
+              onChange={(v) => set('outFormat', v as ImageMime)}
+              options={[
+                { value: 'image/jpeg', label: 'JPG' },
+                { value: 'image/png', label: 'PNG' },
+                { value: 'image/webp', label: 'WebP' },
+              ]}
+            />
+          </div>
           {o.outFormat !== 'image/png' && (
             <Field label={`${ui.quality}: ${o.quality}`}>
               <input type="range" min={10} max={95} step={5} value={o.quality} onChange={(e) => set('quality', Number(e.target.value))} />
@@ -482,13 +555,19 @@ function ToolOptions({ slug, o, set, ui }: { slug: ToolSlug; o: Options; set: <K
           <Field label={`${ui.quality}: ${o.quality}`}>
             <input type="range" min={10} max={95} step={5} value={o.quality} onChange={(e) => set('quality', Number(e.target.value))} />
           </Field>
-          <Field label={ui.format}>
-            <select value={o.format} onChange={(e) => set('format', e.target.value as Options['format'])}>
-              <option value="auto">{ui.formatAuto}</option>
-              <option value="image/jpeg">JPG</option>
-              <option value="image/webp">WebP</option>
-            </select>
-          </Field>
+          <div className="field">
+            <span>{ui.format}</span>
+            <Segmented
+              label={ui.format}
+              value={o.format}
+              onChange={(v) => set('format', v as Options['format'])}
+              options={[
+                { value: 'auto', label: ui.formatAuto.split(/\s*[(\uff08]/)[0], title: ui.formatAuto },
+                { value: 'image/jpeg', label: 'JPG' },
+                { value: 'image/webp', label: 'WebP' },
+              ]}
+            />
+          </div>
           <Field label={ui.maxWidth}>
             <input type="number" min={1} inputMode="numeric" value={o.maxWidth} onChange={(e) => set('maxWidth', e.target.value)} placeholder="1920" />
           </Field>
@@ -523,12 +602,18 @@ function ToolOptions({ slug, o, set, ui }: { slug: ToolSlug; o: Options; set: <K
     case 'jpg-to-pdf':
       return (
         <div className="options">
-          <Field label={ui.pageSize}>
-            <select value={o.pageSize} onChange={(e) => set('pageSize', e.target.value as Options['pageSize'])}>
-              <option value="a4">{ui.pageA4}</option>
-              <option value="image">{ui.pageImage}</option>
-            </select>
-          </Field>
+          <div className="field">
+            <span>{ui.pageSize}</span>
+            <Segmented
+              label={ui.pageSize}
+              value={o.pageSize}
+              onChange={(v) => set('pageSize', v as Options['pageSize'])}
+              options={[
+                { value: 'a4', label: ui.pageA4 },
+                { value: 'image', label: ui.pageImage },
+              ]}
+            />
+          </div>
         </div>
       );
     case 'split-pdf':
@@ -563,13 +648,19 @@ function ToolOptions({ slug, o, set, ui }: { slug: ToolSlug; o: Options; set: <K
     case 'pdf-to-png':
       return (
         <div className="options">
-          <Field label={ui.dpi}>
-            <select value={o.dpi} onChange={(e) => set('dpi', Number(e.target.value))}>
-              <option value={72}>72 DPI</option>
-              <option value={150}>150 DPI</option>
-              <option value={300}>300 DPI</option>
-            </select>
-          </Field>
+          <div className="field">
+            <span>{ui.dpi}</span>
+            <Segmented
+              label={ui.dpi}
+              value={o.dpi}
+              onChange={(v) => set('dpi', Number(v))}
+              options={[
+                { value: 72, label: '72 DPI' },
+                { value: 150, label: '150 DPI' },
+                { value: 300, label: '300 DPI' },
+              ]}
+            />
+          </div>
         </div>
       );
     case 'compress-pdf':
@@ -589,13 +680,19 @@ function ToolOptions({ slug, o, set, ui }: { slug: ToolSlug; o: Options; set: <K
     case 'audio-to-mp3':
       return (
         <div className="options">
-          <Field label={ui.bitrate}>
-            <select value={o.kbps} onChange={(e) => set('kbps', Number(e.target.value))}>
-              <option value={64}>64 kbps</option>
-              <option value={128}>128 kbps</option>
-              <option value={192}>192 kbps</option>
-            </select>
-          </Field>
+          <div className="field">
+            <span>{ui.bitrate}</span>
+            <Segmented
+              label={ui.bitrate}
+              value={o.kbps}
+              onChange={(v) => set('kbps', Number(v))}
+              options={[
+                { value: 64, label: '64 kbps' },
+                { value: 128, label: '128 kbps' },
+                { value: 192, label: '192 kbps' },
+              ]}
+            />
+          </div>
         </div>
       );
     case 'zip-files':
